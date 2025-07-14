@@ -30,6 +30,7 @@ async function run() {
 
     // collections
     const usersCollection = client.db("Aroggo").collection("users");
+    const medicineCollection = client.db("Aroggo").collection("medicines");
 
 
 
@@ -39,6 +40,7 @@ async function run() {
 
 
     // * users
+    // to create a user that is unique in the system
     app.post("/users" ,async(req,res)=>{
       const email = req.body.email;
 
@@ -52,6 +54,60 @@ async function run() {
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
     });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // * seller
+    // to add a new medicine
+    app.post("/medicines" , async(req,res)=>{
+      const medicineInfo = req.body;
+
+      const result = await medicineCollection.insertOne(medicineInfo);
+      res.send(result);
+    });
+
+    // to get medicines added by a specific seller 
+    app.get("/medicines/email" , async(req,res)=>{
+      try {
+        const email = req.query.email;
+
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const userMedicines = await medicineCollection
+          .find({ sellerEmail: email })
+          .toArray();
+
+        res.send(userMedicines);
+      } 
+      catch (error) {
+        console.error("Failed to fetch user medicines:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    
     
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
