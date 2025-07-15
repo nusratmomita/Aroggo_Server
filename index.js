@@ -31,6 +31,7 @@ async function run() {
     // collections
     const usersCollection = client.db("Aroggo").collection("users");
     const medicineCollection = client.db("Aroggo").collection("medicines");
+    const adCollection = client.db("Aroggo").collection("ads");
 
 
 
@@ -77,14 +78,7 @@ async function run() {
 
 
 
-    // * seller
-    // to add a new medicine
-    app.post("/medicines" , async(req,res)=>{
-      const medicineInfo = req.body;
-
-      const result = await medicineCollection.insertOne(medicineInfo);
-      res.send(result);
-    });
+    // * medicine
 
     // to get medicines added by a specific seller 
     app.get("/medicines/email" , async(req,res)=>{
@@ -106,6 +100,87 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
+
+    // to get category wise medicines
+    app.get("/category", async (req, res) => {
+      try {
+        const result = await medicineCollection.aggregate([
+          {
+            $group: {
+              _id: "$category",
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 8 }
+        ]).toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        console.error("Failed to fetch category cards:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // to add a new medicine
+    app.post("/medicines" , async(req,res)=>{
+      const medicineInfo = req.body;
+
+      const result = await medicineCollection.insertOne(medicineInfo);
+      res.send(result);
+    });
+
+
+
+
+
+
+
+    // * ads
+
+    // to get ads per email
+    app.get("/adRequest/email", async (req, res) => {
+      try {
+        const email = req.query.email;
+
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const sellerAds = await adCollection
+          .find({ sellerEmail: email })
+          .sort({ requestedAt: -1 })
+          .toArray();
+
+        res.status(200).send(sellerAds);
+      } catch (error) {
+        console.error("Failed to fetch ad requests by email:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // to create ads
+    app.post("/adRequest" , async(req,res)=>{
+      try {
+        const adRequest = req.body;
+
+        // Set default fields
+        adRequest.status = "Pending";
+        adRequest.requestedAt = new Date().toISOString();
+
+        const result = await adCollection.insertOne(adRequest);
+
+        res.status(201).send({
+          message: "Ad request submitted successfully",
+          insertedId: result.insertedId
+        });
+      } 
+      catch (error) {
+        console.error("Ad request submission failed:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+
 
     
     
