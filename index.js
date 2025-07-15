@@ -32,6 +32,7 @@ async function run() {
     const usersCollection = client.db("Aroggo").collection("users");
     const medicineCollection = client.db("Aroggo").collection("medicines");
     const adCollection = client.db("Aroggo").collection("ads");
+    const cartCollection = client.db("Aroggo").collection("myCart");
 
 
 
@@ -79,7 +80,6 @@ async function run() {
 
 
     // * medicine
-
     // to get medicines added by a specific seller 
     app.get("/medicines/email" , async(req,res)=>{
       try {
@@ -129,12 +129,91 @@ async function run() {
       }
     });
 
+    // to get medicines for a specific category
+    app.get("/category/medicines" , async(req,res)=>{
+      try {
+        const category = req.query.category;
+
+        if (!category) {
+          return res.status(400).send({ message: "Category is required" });
+        }
+
+        const medicines = await medicineCollection
+          .find({ category: { $regex: `^${category}$`, $options: "i" } })
+          .sort({ added_at: -1 }) 
+          .toArray();
+
+        res.status(200).send(medicines);
+      } catch (error) {
+        console.error("Failed to fetch medicines by category:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    })
+
     // to add a new medicine
     app.post("/medicines" , async(req,res)=>{
       const medicineInfo = req.body;
 
       const result = await medicineCollection.insertOne(medicineInfo);
       res.send(result);
+    });
+
+
+
+
+
+
+
+
+
+    // * my cart
+    // to get cart items for a specific user
+    app.get("/myCart" , async(req,res)=>{
+      try {
+        const { email } = req.query;
+        if (!email) return res.status(400).send({ message: "Email is required" });
+
+        const items = await cartCollection.find({ email }).toArray();
+        res.status(200).send(items);
+      } catch (error) {
+        console.error("Fetch cart failed:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+
+    // to add a new item to the cart
+    app.post("/myCart" , async(req,res)=>{
+      try{
+        const {email , medicineId , name , company , price , quantity=1} = req.body;
+
+        if (!email || !medicineId) {
+          return res.status(400).send({ message: "Email and medicine ID are required" });
+        }
+
+        const alreadyExists = await cartCollection.findOne({email,medicineId});
+
+        if(alreadyExists){
+          return res.status(409).send({ message: "Already in cart" });
+        }
+
+        const addToCart = await cartCollection.insertOne({
+          email,
+          medicineId,
+          name,
+          company,
+          price,
+          quantity,
+          added_at: new Date().toISOString()
+        });
+        console.log(addToCart);
+
+        res.send(addToCart);
+      }
+      catch (error) {
+        console.error("Add to cart failed:", error);
+        res.status(500).send({ message: "Server error" });
+      }
     });
 
 
