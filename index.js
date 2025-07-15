@@ -108,14 +108,22 @@ async function run() {
           {
             $group: {
               _id: "$category",
+              image: { $first: "$image" },
               count: { $sum: 1 }
             }
           },
           { $sort: { count: -1 } },
           { $limit: 8 }
         ]).toArray();
-        res.status(200).send(result);
-      } catch (error) {
+
+        const categoryCards = result.map(cat => ({
+          categoryName: cat._id,
+          categoryImage: cat.image,
+          count: cat.count
+        }));
+        res.status(200).send(categoryCards);
+      } 
+      catch (error) {
         console.error("Failed to fetch category cards:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
