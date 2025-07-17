@@ -80,6 +80,17 @@ async function run() {
 
 
     // * medicine
+    // to get all the medicines
+    app.get("/medicines", async (req, res) => {
+      try {
+        const medicines = await medicineCollection.find({}).toArray();
+        res.status(200).send(medicines);
+      } catch (error) {
+        console.error("Fetching all medicines failed:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
     // to get medicines added by a specific seller 
     app.get("/medicines/email" , async(req,res)=>{
       try {
