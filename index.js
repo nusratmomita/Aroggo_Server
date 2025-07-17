@@ -205,7 +205,7 @@ async function run() {
           quantity,
           added_at: new Date().toISOString()
         });
-        console.log(addToCart);
+        // console.log(addToCart);
 
         res.send(addToCart);
       }
@@ -234,31 +234,31 @@ async function run() {
     }); 
 
     // to remove a single item from cart
-    // app.delete("/myCart/:id", async (req, res) => {
-    //   try {
-    //     const id = req.params.id;
-    //     const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+    app.delete("/myCart/singleItem/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
 
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.error("Failed to delete cart item:", error);
-    //     res.status(500).send({ message: "Server error" });
-    //   }
-    // });
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to delete cart item:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
 
-    // // to clear everything from the cart
-    //  app.delete("/myCart/remove", async (req, res) => {
-    //   try {
-    //     const { email } = req.query;
-    //     if (!email) return res.status(400).send({ message: "Email is required" });
+    // to clear everything from the cart
+     app.delete("/myCart/remove", async (req, res) => {
+      try {
+        const { email } = req.query;
+        if (!email) return res.status(400).send({ message: "Email is required" });
 
-    //     const result = await cartCollection.deleteMany({ email });
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.error("Failed to clear cart:", error);
-    //     res.status(500).send({ message: "Server error" });
-    //   }
-    // });
+        const result = await cartCollection.deleteMany({ email });
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to clear cart:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
 
 
 
