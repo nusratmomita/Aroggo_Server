@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.1k8uoge.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -181,7 +181,6 @@ async function run() {
       }
     });
 
-
     // to add a new item to the cart
     app.post("/myCart" , async(req,res)=>{
       try{
@@ -215,6 +214,51 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
+
+    // to increment/decrement the cart items
+    app.patch("/myCart/ChangeQuantity/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { change } = req.body; // change +1 or -1
+
+        const result = await cartCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $inc: { quantity: change } }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to update quantity:", error);
+        res.status(500).send({ message: "Server error" });
+      }
+    }); 
+
+    // to remove a single item from cart
+    // app.delete("/myCart/:id", async (req, res) => {
+    //   try {
+    //     const id = req.params.id;
+    //     const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     console.error("Failed to delete cart item:", error);
+    //     res.status(500).send({ message: "Server error" });
+    //   }
+    // });
+
+    // // to clear everything from the cart
+    //  app.delete("/myCart/remove", async (req, res) => {
+    //   try {
+    //     const { email } = req.query;
+    //     if (!email) return res.status(400).send({ message: "Email is required" });
+
+    //     const result = await cartCollection.deleteMany({ email });
+    //     res.send(result);
+    //   } catch (error) {
+    //     console.error("Failed to clear cart:", error);
+    //     res.status(500).send({ message: "Server error" });
+    //   }
+    // });
 
 
 
