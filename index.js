@@ -5,9 +5,8 @@ const port = process.env.PORT || 3000;
 
 
 const app = express();
-// Aroggo
-// hPfuji8LlzXMvofn
 
+const stripe = require("stripe").Stripe(process.env.PAYMENT_GATEWAY_KEY)
 
 app.use(cors());
 app.use(express.json());
@@ -33,6 +32,7 @@ async function run() {
     const medicineCollection = client.db("Aroggo").collection("medicines");
     const adCollection = client.db("Aroggo").collection("ads");
     const cartCollection = client.db("Aroggo").collection("myCart");
+    const paymentCollection = client.db("Aroggo").collection("payments");
 
 
 
@@ -195,7 +195,7 @@ async function run() {
     // to add a new item to the cart
     app.post("/myCart" , async(req,res)=>{
       try{
-        const {email , medicineId , name , company , price , quantity=1} = req.body;
+        const {email , medicineId , name , company , price , quantity=1 , payment_status} = req.body;
 
         if (!email || !medicineId) {
           return res.status(400).send({ message: "Email and medicine ID are required" });
@@ -214,6 +214,7 @@ async function run() {
           company,
           price,
           quantity,
+          payment_status,
           added_at: new Date().toISOString()
         });
         // console.log(addToCart);
@@ -278,7 +279,6 @@ async function run() {
 
 
     // * ads
-
     // to get ads per email
     app.get("/adRequest/email", async (req, res) => {
       try {
@@ -321,6 +321,111 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+
+
+    // * payment integration
+    app.post("/create-payment-intent" , async(req,res)=>{
+      const amountInCents = req.body.totalCostInCents;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: "usd",
+        payment_method_types: ["card"]
+      });
+
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    // to get payment for each user
+    app.get("/payment", async (req, res) => {
+      // console.log('access token from header', req.headers)
+      const email = req.query.email;
+
+      const query = email ? { email: email } : {};
+      const options = { sort: { paid_at_string: -1 } }; // Latest first
+
+      const payments = await paymentCollection.find(query, options).toArray();
+      res.send(payments);
+    });
+
+    // to record payment and update parcel status
+  //   app.post("/payment", async (req, res) => {
+  //   try {
+  //     const { medicineIds, email, amount, paymentMethod, transactionId } = req.body;
+
+  //     // Check if medicineIds is an array
+  //     const idsArray = Array.isArray(medicineIds) ? medicineIds.map(id => new ObjectId(id)) : [new ObjectId(medicineIds)];
+
+  //     // 1. Update all matching items in cartCollection
+  //     const updateResult = await cartCollection.updateMany(
+  //       { _id: { $in: idsArray } },
+  //       {
+  //         $set: {
+  //           payment_status: "Paid",
+  //         },
+  //       }
+  //     );
+
+  //     // 2. Insert payment record
+  //     const paymentDoc = {
+  //       medicineIds: idsArray,
+  //       email,
+  //       amount,
+  //       paymentMethod,
+  //       transactionId,
+  //       paid_at_string: new Date().toISOString(),
+  //     };
+
+  //     const paymentResult = await paymentCollection.insertOne(paymentDoc);
+
+  //     res.status(201).send({
+  //       message: "Payment recorded and medicines marked as paid",
+  //       insertedId: paymentResult.insertedId,
+  //       updateCount: updateResult.modifiedCount,
+  //     });
+  //   } catch (error) {
+  //     console.error("Payment processing error:", error);
+  //     res.status(500).send({ error: "Failed to process payment" });
+  //   }
+  // });
+  app.post("/payment", async (req, res) => {
+    try {
+      // Backend
+      const { cartItemIds, email, amount, paymentMethod, transactionId } = req.body;
+
+      // Ensure cartItemIds is an array of ObjectIds
+      const idsArray = cartItemIds.map(id => new ObjectId(id));
+
+      // Update payment status of cart items
+      const updateResult = await cartCollection.updateMany(
+        { _id: { $in: idsArray }, email },
+        { $set: { payment_status: "Paid" } }
+      );
+
+      // Insert payment record
+      const paymentDoc = {
+        medicineIds: idsArray, // You can still store it as medicineIds if you want
+        email,
+        amount,
+        paymentMethod,
+        transactionId,
+        paid_at_string: new Date().toISOString(),
+      };
+
+      const paymentResult = await paymentCollection.insertOne(paymentDoc);
+
+      res.status(201).send({
+        message: "Payment successful and cart updated",
+        insertedId: paymentResult.insertedId,
+        modifiedCount: updateResult.modifiedCount,
+      });
+    } catch (error) {
+      console.error("Payment Error:", error);
+      res.status(500).send({ error: "Something went wrong during payment" });
+    }
+  });
+
 
 
 
