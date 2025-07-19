@@ -42,6 +42,17 @@ async function run() {
 
 
     // * users
+    // to get all the user
+    app.get("/users", async (req, res) => {
+      try {
+        const users = await usersCollection.find().toArray();
+        res.send(users);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch users" });
+      }
+    });
+
+
     // to create a user that is unique in the system
     app.post("/users" ,async(req,res)=>{
       const email = req.body.email;
@@ -235,7 +246,11 @@ async function run() {
 
         const result = await cartCollection.updateOne(
           { _id: new ObjectId(id) },
-          { $inc: { quantity: change } }
+          {
+            // $set:{
+            $inc: { quantity: change }
+           }
+          // }
         );
 
         res.send(result);
@@ -350,81 +365,38 @@ async function run() {
     });
 
     // to record payment and update parcel status
-  //   app.post("/payment", async (req, res) => {
-  //   try {
-  //     const { medicineIds, email, amount, paymentMethod, transactionId } = req.body;
+    app.post("/payment", async (req, res) => {
+      try {
+        const { cartItemIds, email, amount, paymentMethod, transactionId } = req.body;
 
-  //     // Check if medicineIds is an array
-  //     const idsArray = Array.isArray(medicineIds) ? medicineIds.map(id => new ObjectId(id)) : [new ObjectId(medicineIds)];
+        const idsArray = cartItemIds.map(id => new ObjectId(id));
 
-  //     // 1. Update all matching items in cartCollection
-  //     const updateResult = await cartCollection.updateMany(
-  //       { _id: { $in: idsArray } },
-  //       {
-  //         $set: {
-  //           payment_status: "Paid",
-  //         },
-  //       }
-  //     );
+        const updateResult = await cartCollection.updateMany(
+          { _id: { $in: idsArray }, email },
+          { $set: { payment_status: "Paid" } }
+        );
 
-  //     // 2. Insert payment record
-  //     const paymentDoc = {
-  //       medicineIds: idsArray,
-  //       email,
-  //       amount,
-  //       paymentMethod,
-  //       transactionId,
-  //       paid_at_string: new Date().toISOString(),
-  //     };
+        const paymentDoc = {
+          medicineIds: idsArray, 
+          email,
+          amount,
+          paymentMethod,
+          transactionId,
+          paid_at_string: new Date().toISOString(),
+        };
 
-  //     const paymentResult = await paymentCollection.insertOne(paymentDoc);
+        const paymentResult = await paymentCollection.insertOne(paymentDoc);
 
-  //     res.status(201).send({
-  //       message: "Payment recorded and medicines marked as paid",
-  //       insertedId: paymentResult.insertedId,
-  //       updateCount: updateResult.modifiedCount,
-  //     });
-  //   } catch (error) {
-  //     console.error("Payment processing error:", error);
-  //     res.status(500).send({ error: "Failed to process payment" });
-  //   }
-  // });
-  app.post("/payment", async (req, res) => {
-    try {
-      // Backend
-      const { cartItemIds, email, amount, paymentMethod, transactionId } = req.body;
-
-      // Ensure cartItemIds is an array of ObjectIds
-      const idsArray = cartItemIds.map(id => new ObjectId(id));
-
-      // Update payment status of cart items
-      const updateResult = await cartCollection.updateMany(
-        { _id: { $in: idsArray }, email },
-        { $set: { payment_status: "Paid" } }
-      );
-
-      // Insert payment record
-      const paymentDoc = {
-        medicineIds: idsArray, // You can still store it as medicineIds if you want
-        email,
-        amount,
-        paymentMethod,
-        transactionId,
-        paid_at_string: new Date().toISOString(),
-      };
-
-      const paymentResult = await paymentCollection.insertOne(paymentDoc);
-
-      res.status(201).send({
-        message: "Payment successful and cart updated",
-        insertedId: paymentResult.insertedId,
-        modifiedCount: updateResult.modifiedCount,
-      });
-    } catch (error) {
-      console.error("Payment Error:", error);
-      res.status(500).send({ error: "Something went wrong during payment" });
-    }
-  });
+        res.status(201).send({
+          message: "Payment successful and cart updated",
+          insertedId: paymentResult.insertedId,
+          modifiedCount: updateResult.modifiedCount,
+        });
+      } catch (error) {
+        console.error("Payment Error:", error);
+        res.status(500).send({ error: "Something went wrong during payment" });
+      }
+    });
 
 
 
