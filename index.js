@@ -52,7 +52,6 @@ async function run() {
       }
     });
 
-
     // to create a user that is unique in the system
     app.post("/users" ,async(req,res)=>{
       const email = req.body.email;
@@ -67,6 +66,30 @@ async function run() {
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
     });
+
+    // to change current role of a user & make an Admin
+    app.patch("/users/role/:id" , async(req,res)=>{
+      try {
+      const id = req.params.id;
+      const { role } = req.body;
+
+      if (!["user", "seller", "admin"].includes(role)) {
+        return res.status(400).send({ message: "Invalid role provided" });
+      }
+
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+
+      res.send(result);
+    } catch (error) {
+      console.error("Error updating role:", error);
+      res.status(500).send({ message: "Failed to update role" });
+    }
+    }) 
+
+
 
 
 
