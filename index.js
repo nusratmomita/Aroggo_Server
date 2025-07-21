@@ -30,6 +30,7 @@ async function run() {
     // collections
     const usersCollection = client.db("Aroggo").collection("users");
     const medicineCollection = client.db("Aroggo").collection("medicines");
+    const categoryCollection = client.db("Aroggo").collection("categories");
     const adCollection = client.db("Aroggo").collection("ads");
     const cartCollection = client.db("Aroggo").collection("myCart");
     const paymentCollection = client.db("Aroggo").collection("payments");
@@ -207,6 +208,43 @@ async function run() {
 
 
 
+    // * category
+    // to get the categories
+    app.get("/categories", async (req, res) => {
+      try {
+        const result = await categoryCollection.find().toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch categories" });
+      }
+    });
+    // to create a new category
+    app.post("/categories",  async (req, res) => {
+      const { categoryName, categoryImage , added_at } = req.body;
+
+      if (!categoryName || !categoryImage) {
+        return res.status(400).send({ message: "Name and image are required" });
+      }
+
+      // Optional: Prevent duplicate category names
+      const existing = await categoryCollection.findOne({ categoryName });
+      if (existing) {
+        return res.status(409).send({ message: "Category already exists" });
+      }
+
+      const result = await categoryCollection.insertOne({ categoryName, categoryImage, added_at });
+      res.status(201).send({ message: "Category added", result });
+    });
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -359,6 +397,9 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+
+
 
 
 
