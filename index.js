@@ -477,6 +477,7 @@ async function run() {
           amount,
           paymentMethod,
           transactionId,
+          acceptance_status: "Pending",
           paid_at_string: new Date().toISOString(),
         };
 
@@ -492,6 +493,51 @@ async function run() {
         res.status(500).send({ error: "Something went wrong during payment" });
       }
     });
+
+    // to get the payment status from cartCollection for admin to accept payment
+    app.get("/paymentStatus", async (req, res) => {
+      try {
+        const statuses = await cartCollection
+          .find({}, { projection: { _id: 1, payment_status: 1 ,email: 1, added_at: 1,quantity:1 } })
+          .toArray();
+        res.send(statuses);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to fetch payment statuses" });
+      }
+    });
+
+    // to get the acceptance status from paymentCollection for admin to accept payment
+    app.get("/acceptanceStatus", async (req, res) => {
+      try {
+        const statuses = await paymentCollection
+          .find({}, { projection: { acceptance_status:1 , email: 1} })
+          .toArray();
+        res.send(statuses);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to fetch payment statuses" });
+      }
+    });
+
+    // PATCH: Accept a pending payment
+    app.patch("/acceptanceStatus/:transactionId", async (req, res) => {
+      const { transactionId } = req.params;
+
+      try {
+        const result = await paymentCollection.updateOne(
+          { transactionId },
+          { $set: { acceptance_status: "accepted" } }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: "Payment accepted" });
+        } else {
+          res.status(404).send({ success: false, message: "Payment not found or already accepted" });
+        }
+      } catch (err) {
+        res.status(500).send({ error: "Server error while accepting payment" });
+      }
+    });
+
 
 
 
