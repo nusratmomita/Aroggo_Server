@@ -218,6 +218,7 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch categories" });
       }
     });
+
     // to create a new category
     app.post("/categories",  async (req, res) => {
       const { categoryName, categoryImage , added_at } = req.body;
@@ -234,6 +235,27 @@ async function run() {
 
       const result = await categoryCollection.insertOne({ categoryName, categoryImage, added_at });
       res.status(201).send({ message: "Category added", result });
+    });
+
+    // to update a categories info
+    app.patch("/categories/:id",  async (req, res) => {
+      const { id } = req.params;
+      const { categoryName, categoryImage } = req.body;
+      const filter = { _id: new ObjectId(id)};
+
+
+      const updateDoc = {
+        $set:{
+          categoryName: categoryName,
+          categoryImage: categoryImage
+        }
+      };
+      // if (categoryName) updateDoc.categoryName = categoryName;
+      // if (categoryImage) updateDoc.categoryImage = categoryImage;
+
+      const result = await categoryCollection.updateOne(filter,updateDoc);
+
+      res.send({ message: "Category updated", result });
     });
 
 
