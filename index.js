@@ -468,7 +468,7 @@ async function run() {
 
         const updateResult = await cartCollection.updateMany(
           { _id: { $in: idsArray }, email },
-          { $set: { payment_status: "Paid" } }
+          { $set: { payment_status: "Paid" , paid_at_string: new Date().toISOString()} }
         );
 
         const paymentDoc = {
@@ -478,7 +478,7 @@ async function run() {
           paymentMethod,
           transactionId,
           acceptance_status: "Pending",
-          paid_at_string: new Date().toISOString(),
+          // paid_at_string: new Date().toISOString(),
         };
 
         const paymentResult = await paymentCollection.insertOne(paymentDoc);
@@ -498,7 +498,7 @@ async function run() {
     app.get("/paymentStatus", async (req, res) => {
       try {
         const statuses = await cartCollection
-          .find({}, { projection: { _id: 1, payment_status: 1 ,email: 1, added_at: 1,quantity:1 } })
+          .find({}, { projection: { _id: 1, payment_status: 1 ,email: 1, added_at: 1} })
           .toArray();
         res.send(statuses);
       } catch (err) {
@@ -518,25 +518,44 @@ async function run() {
       }
     });
 
-    // PATCH: Accept a pending payment
-    app.patch("/acceptanceStatus/:transactionId", async (req, res) => {
-      const { transactionId } = req.params;
+ 
+    // to accept a pending payment
+    app.patch("/acceptanceStatus/:id", async (req, res) => {
+      const id = req.params.id;
 
       try {
+        const payment = await paymentCollection.findOne({ _id: new ObjectId(id) });
+
+        if (!payment) {
+          return res.status(404).send({ error: "Payment record not found" });
+        }
+
+        const cartItems = await cartCollection.find({
+          _id: { $in: payment.medicineIds },
+          email: payment.email
+        }).toArray();
+
+        const allPaid = cartItems.length > 0 && cartItems.every(item => item.payment_status === "Paid");
+
+        console.log("Found cart items:", cartItems.map(i => i._id.toString()));
+        console.log("All paid?", allPaid);
+
+        if (!allPaid) {
+          return res.status(400).send({ error: "Not all medicines are marked as paid" });
+        }
+
         const result = await paymentCollection.updateOne(
-          { transactionId },
-          { $set: { acceptance_status: "accepted" } }
+          { _id: new ObjectId(id) },
+          { $set: { acceptance_status: "Accepted" } }
         );
 
-        if (result.modifiedCount > 0) {
-          res.send({ success: true, message: "Payment accepted" });
-        } else {
-          res.status(404).send({ success: false, message: "Payment not found or already accepted" });
-        }
+        res.send(result);
       } catch (err) {
-        res.status(500).send({ error: "Server error while accepting payment" });
+        res.status(500).send({ error: "Server error", details: err.message });
       }
     });
+
+
 
 
 
