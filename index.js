@@ -40,6 +40,7 @@ async function run() {
 
 
 
+    
 
 
     // * users
@@ -468,7 +469,7 @@ async function run() {
 
         const updateResult = await cartCollection.updateMany(
           { _id: { $in: idsArray }, email },
-          { $set: { payment_status: "Paid" , paid_at_string: new Date().toISOString()} }
+          { $set: { payment_status: "Paid" , paid_at_string: new Date()} }
         );
 
         const paymentDoc = {
@@ -552,6 +553,51 @@ async function run() {
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: "Server error", details: err.message });
+      }
+    });
+
+
+
+    // to get sales report for admin
+    app.get("/salesReport", async (req, res) => {
+      try {
+        const { startDate, endDate } = req.query;
+
+        const query = {};
+
+        if (startDate && endDate) {
+          query.paid_at_string = {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          };
+        }
+
+        const payments = await paymentCollection.find(query).toArray();
+
+        // Enrich with medicine & seller info
+        const enrichedSales = await Promise.all(
+          payments.map(async (payment) => {
+            const medicines = await medicineCollection
+              .find({ _id: { $in: payment.medicineIds.map(id => new ObjectId(id)) } })
+              .toArray();
+              // console.log(medicines)
+
+            return {
+              date: payment.paid_at_string,
+              buyerEmail: payment.email,
+              totalPrice: payment.amount,
+              medicineNames: medicines.map(med => med.name).join(", "),
+              sellerEmails: [...new Set(medicines.map(med => med.sellerEmail))].join(", "),
+            };
+          })
+          
+        );
+        // console.log(enrichedSales)         
+
+        res.send(enrichedSales);
+      } catch (err) {
+        console.error("Sales Report error:", err);
+        res.status(500).send({ error: "Failed to get sales report" });
       }
     });
 
