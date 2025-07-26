@@ -1,18 +1,16 @@
-require('dotenv').config()
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const port = process.env.PORT || 3000;
 
-
 const app = express();
 
-const stripe = require("stripe").Stripe(process.env.PAYMENT_GATEWAY_KEY)
+const stripe = require("stripe").Stripe(process.env.PAYMENT_GATEWAY_KEY);
 
 app.use(cors());
 app.use(express.json());
 
-
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.1k8uoge.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -21,12 +19,11 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
   try {
-
     // collections
     const usersCollection = client.db("Aroggo").collection("users");
     const medicineCollection = client.db("Aroggo").collection("medicines");
@@ -34,14 +31,6 @@ async function run() {
     const adCollection = client.db("Aroggo").collection("ads");
     const cartCollection = client.db("Aroggo").collection("myCart");
     const paymentCollection = client.db("Aroggo").collection("payments");
-
-
-
-
-
-
-    
-
 
     // * users
     // to get all the user
@@ -55,12 +44,14 @@ async function run() {
     });
 
     // to create a user that is unique in the system
-    app.post("/users" ,async(req,res)=>{
+    app.post("/users", async (req, res) => {
       const email = req.body.email;
 
-      const userExit = await usersCollection.findOne({email});
-      if(userExit){
-        return res.status(409).send({message: "User already exits" , inserted: false});
+      const userExit = await usersCollection.findOne({ email });
+      if (userExit) {
+        return res
+          .status(409)
+          .send({ message: "User already exits", inserted: false });
       }
 
       const userInfo = req.body;
@@ -70,50 +61,26 @@ async function run() {
     });
 
     // to change current role of a user & make an Admin
-    app.patch("/users/role/:id" , async(req,res)=>{
+    app.patch("/users/role/:id", async (req, res) => {
       try {
-      const id = req.params.id;
-      const { role } = req.body;
+        const id = req.params.id;
+        const { role } = req.body;
 
-      if (!["user", "seller", "admin"].includes(role)) {
-        return res.status(400).send({ message: "Invalid role provided" });
+        if (!["user", "seller", "admin"].includes(role)) {
+          return res.status(400).send({ message: "Invalid role provided" });
+        }
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role } }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating role:", error);
+        res.status(500).send({ message: "Failed to update role" });
       }
-
-      const result = await usersCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { role } }
-      );
-
-      res.send(result);
-    } catch (error) {
-      console.error("Error updating role:", error);
-      res.status(500).send({ message: "Failed to update role" });
-    }
-    }) 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    });
 
     // * medicine
     // to get all the medicines
@@ -127,8 +94,8 @@ async function run() {
       }
     });
 
-    // to get medicines added by a specific seller 
-    app.get("/medicines/email" , async(req,res)=>{
+    // to get medicines added by a specific seller
+    app.get("/medicines/email", async (req, res) => {
       try {
         const email = req.query.email;
 
@@ -141,8 +108,7 @@ async function run() {
           .toArray();
 
         res.send(userMedicines);
-      } 
-      catch (error) {
+      } catch (error) {
         console.error("Failed to fetch user medicines:", error);
         res.status(500).send({ message: "Server error" });
       }
@@ -151,33 +117,34 @@ async function run() {
     // to get category wise medicines
     app.get("/category", async (req, res) => {
       try {
-        const result = await medicineCollection.aggregate([
-          {
-            $group: {
-              _id: "$category",
-              image: { $first: "$image" },
-              count: { $sum: 1 }
-            }
-          },
-          { $sort: { count: -1 } },
-          { $limit: 8 }
-        ]).toArray();
+        const result = await medicineCollection
+          .aggregate([
+            {
+              $group: {
+                _id: "$category",
+                image: { $first: "$image" },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1 } },
+            { $limit: 8 },
+          ])
+          .toArray();
 
-        const categoryCards = result.map(cat => ({
+        const categoryCards = result.map((cat) => ({
           categoryName: cat._id,
           categoryImage: cat.image,
-          count: cat.count
+          count: cat.count,
         }));
         res.status(200).send(categoryCards);
-      } 
-      catch (error) {
+      } catch (error) {
         console.error("Failed to fetch category cards:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
 
     // to get medicines for a specific category
-    app.get("/category/medicines" , async(req,res)=>{
+    app.get("/category/medicines", async (req, res) => {
       try {
         const category = req.query.category;
 
@@ -187,7 +154,7 @@ async function run() {
 
         const medicines = await medicineCollection
           .find({ category: { $regex: `^${category}$`, $options: "i" } })
-          .sort({ added_at: -1 }) 
+          .sort({ added_at: -1 })
           .toArray();
 
         res.status(200).send(medicines);
@@ -195,19 +162,15 @@ async function run() {
         console.error("Failed to fetch medicines by category:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
-    })
+    });
 
     // to add a new medicine
-    app.post("/medicines" , async(req,res)=>{
+    app.post("/medicines", async (req, res) => {
       const medicineInfo = req.body;
 
       const result = await medicineCollection.insertOne(medicineInfo);
       res.send(result);
     });
-
-
-
-
 
     // * category
     // to get the categories
@@ -221,8 +184,8 @@ async function run() {
     });
 
     // to create a new category
-    app.post("/categories",  async (req, res) => {
-      const { categoryName, categoryImage , added_at } = req.body;
+    app.post("/categories", async (req, res) => {
+      const { categoryName, categoryImage, added_at } = req.body;
 
       if (!categoryName || !categoryImage) {
         return res.status(400).send({ message: "Name and image are required" });
@@ -234,27 +197,30 @@ async function run() {
         return res.status(409).send({ message: "Category already exists" });
       }
 
-      const result = await categoryCollection.insertOne({ categoryName, categoryImage, added_at });
+      const result = await categoryCollection.insertOne({
+        categoryName,
+        categoryImage,
+        added_at,
+      });
       res.status(201).send({ message: "Category added", result });
     });
 
     // to update a categories info
-    app.patch("/categories/:id",  async (req, res) => {
+    app.patch("/categories/:id", async (req, res) => {
       const { id } = req.params;
       const { categoryName, categoryImage } = req.body;
-      const filter = { _id: new ObjectId(id)};
-
+      const filter = { _id: new ObjectId(id) };
 
       const updateDoc = {
-        $set:{
+        $set: {
           categoryName: categoryName,
-          categoryImage: categoryImage
-        }
+          categoryImage: categoryImage,
+        },
       };
       // if (categoryName) updateDoc.categoryName = categoryName;
       // if (categoryImage) updateDoc.categoryImage = categoryImage;
 
-      const result = await categoryCollection.updateOne(filter,updateDoc);
+      const result = await categoryCollection.updateOne(filter, updateDoc);
 
       res.send({ message: "Category updated", result });
     });
@@ -263,30 +229,20 @@ async function run() {
     app.delete("/categories/:id", async (req, res) => {
       const { id } = req.params;
 
-      const result = await categoryCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await categoryCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
 
       res.send(result);
     });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     // * my cart
     // to get cart items for a specific user
-    app.get("/myCart" , async(req,res)=>{
+    app.get("/myCart", async (req, res) => {
       try {
         const { email } = req.query;
-        if (!email) return res.status(400).send({ message: "Email is required" });
+        if (!email)
+          return res.status(400).send({ message: "Email is required" });
 
         const items = await cartCollection.find({ email }).toArray();
         res.status(200).send(items);
@@ -297,17 +253,30 @@ async function run() {
     });
 
     // to add a new item to the cart
-    app.post("/myCart" , async(req,res)=>{
-      try{
-        const {email , medicineId , name , company , price , quantity=1 , payment_status} = req.body;
+    app.post("/myCart", async (req, res) => {
+      try {
+        const {
+          email,
+          medicineId,
+          name,
+          company,
+          price,
+          quantity = 1,
+          payment_status,
+        } = req.body;
 
         if (!email || !medicineId) {
-          return res.status(400).send({ message: "Email and medicine ID are required" });
+          return res
+            .status(400)
+            .send({ message: "Email and medicine ID are required" });
         }
 
-        const alreadyExists = await cartCollection.findOne({email,medicineId});
+        const alreadyExists = await cartCollection.findOne({
+          email,
+          medicineId,
+        });
 
-        if(alreadyExists){
+        if (alreadyExists) {
           return res.status(409).send({ message: "Already in cart" });
         }
 
@@ -319,13 +288,12 @@ async function run() {
           price,
           quantity,
           payment_status,
-          added_at: new Date().toISOString()
+          added_at: new Date().toISOString(),
         });
         // console.log(addToCart);
 
         res.send(addToCart);
-      }
-      catch (error) {
+      } catch (error) {
         console.error("Add to cart failed:", error);
         res.status(500).send({ message: "Server error" });
       }
@@ -341,8 +309,8 @@ async function run() {
           { _id: new ObjectId(id) },
           {
             // $set:{
-            $inc: { quantity: change }
-           }
+            $inc: { quantity: change },
+          }
           // }
         );
 
@@ -351,13 +319,15 @@ async function run() {
         console.error("Failed to update quantity:", error);
         res.status(500).send({ message: "Server error" });
       }
-    }); 
+    });
 
     // to remove a single item from cart
     app.delete("/myCart/singleItem/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+        const result = await cartCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
 
         res.send(result);
       } catch (error) {
@@ -367,10 +337,11 @@ async function run() {
     });
 
     // to clear everything from the cart
-     app.delete("/myCart/remove", async (req, res) => {
+    app.delete("/myCart/remove", async (req, res) => {
       try {
         const { email } = req.query;
-        if (!email) return res.status(400).send({ message: "Email is required" });
+        if (!email)
+          return res.status(400).send({ message: "Email is required" });
 
         const result = await cartCollection.deleteMany({ email });
         res.send(result);
@@ -379,12 +350,6 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
-
-
-
-
-
-
 
     // * ads
     // to get ads per email
@@ -409,7 +374,7 @@ async function run() {
     });
 
     // to create ads
-    app.post("/adRequest" , async(req,res)=>{
+    app.post("/adRequest", async (req, res) => {
       try {
         const adRequest = req.body;
 
@@ -421,28 +386,22 @@ async function run() {
 
         res.status(201).send({
           message: "Ad request submitted successfully",
-          insertedId: result.insertedId
+          insertedId: result.insertedId,
         });
-      } 
-      catch (error) {
+      } catch (error) {
         console.error("Ad request submission failed:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
 
-
-
-
-
-
     // * payment integration
-    app.post("/create-payment-intent" , async(req,res)=>{
+    app.post("/create-payment-intent", async (req, res) => {
       const amountInCents = req.body.totalCostInCents;
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountInCents,
         currency: "usd",
-        payment_method_types: ["card"]
+        payment_method_types: ["card"],
       });
 
       res.send({ clientSecret: paymentIntent.client_secret });
@@ -463,17 +422,18 @@ async function run() {
     // to record payment and update parcel status
     app.post("/payment", async (req, res) => {
       try {
-        const { cartItemIds, email, amount, paymentMethod, transactionId } = req.body;
+        const { cartItemIds, email, amount, paymentMethod, transactionId } =
+          req.body;
 
-        const idsArray = cartItemIds.map(id => new ObjectId(id));
+        const idsArray = cartItemIds.map((id) => new ObjectId(id));
 
         const updateResult = await cartCollection.updateMany(
           { _id: { $in: idsArray }, email },
-          { $set: { payment_status: "Paid" , paid_at_string: new Date()} }
+          { $set: { payment_status: "Paid", paid_at_string: new Date() } }
         );
 
         const paymentDoc = {
-          medicineIds: idsArray, 
+          medicineIds: idsArray,
           email,
           amount,
           paymentMethod,
@@ -499,7 +459,10 @@ async function run() {
     app.get("/paymentStatus", async (req, res) => {
       try {
         const statuses = await cartCollection
-          .find({}, { projection: { _id: 1, payment_status: 1 ,email: 1, added_at: 1} })
+          .find(
+            {},
+            { projection: { _id: 1, payment_status: 1, email: 1, added_at: 1 } }
+          )
           .toArray();
         res.send(statuses);
       } catch (err) {
@@ -511,7 +474,7 @@ async function run() {
     app.get("/acceptanceStatus", async (req, res) => {
       try {
         const statuses = await paymentCollection
-          .find({}, { projection: { acceptance_status:1 , email: 1} })
+          .find({}, { projection: { acceptance_status: 1, email: 1 } })
           .toArray();
         res.send(statuses);
       } catch (err) {
@@ -519,30 +482,40 @@ async function run() {
       }
     });
 
- 
     // to accept a pending payment
     app.patch("/acceptanceStatus/:id", async (req, res) => {
       const id = req.params.id;
 
       try {
-        const payment = await paymentCollection.findOne({ _id: new ObjectId(id) });
+        const payment = await paymentCollection.findOne({
+          _id: new ObjectId(id),
+        });
 
         if (!payment) {
           return res.status(404).send({ error: "Payment record not found" });
         }
 
-        const cartItems = await cartCollection.find({
-          _id: { $in: payment.medicineIds },
-          email: payment.email
-        }).toArray();
+        const cartItems = await cartCollection
+          .find({
+            _id: { $in: payment.medicineIds },
+            email: payment.email,
+          })
+          .toArray();
 
-        const allPaid = cartItems.length > 0 && cartItems.every(item => item.payment_status === "Paid");
+        const allPaid =
+          cartItems.length > 0 &&
+          cartItems.every((item) => item.payment_status === "Paid");
 
-        console.log("Found cart items:", cartItems.map(i => i._id.toString()));
+        console.log(
+          "Found cart items:",
+          cartItems.map((i) => i._id.toString())
+        );
         console.log("All paid?", allPaid);
 
         if (!allPaid) {
-          return res.status(400).send({ error: "Not all medicines are marked as paid" });
+          return res
+            .status(400)
+            .send({ error: "Not all medicines are marked as paid" });
         }
 
         const result = await paymentCollection.updateOne(
@@ -555,8 +528,6 @@ async function run() {
         res.status(500).send({ error: "Server error", details: err.message });
       }
     });
-
-
 
     // to get sales report for admin
     app.get("/salesReport", async (req, res) => {
@@ -578,21 +549,24 @@ async function run() {
         const enrichedSales = await Promise.all(
           payments.map(async (payment) => {
             const medicines = await medicineCollection
-              .find({ _id: { $in: payment.medicineIds.map(id => new ObjectId(id)) } })
+              .find({
+                _id: { $in: payment.medicineIds.map((id) => new ObjectId(id)) },
+              })
               .toArray();
-              // console.log(medicines)
+            // console.log(medicines)
 
             return {
               date: payment.paid_at_string,
               buyerEmail: payment.email,
               totalPrice: payment.amount,
-              medicineNames: medicines.map(med => med.name).join(", "),
-              sellerEmails: [...new Set(medicines.map(med => med.sellerEmail))].join(", "),
+              medicineNames: medicines.map((med) => med.name).join(", "),
+              sellerEmails: [
+                ...new Set(medicines.map((med) => med.sellerEmail)),
+              ].join(", "),
             };
           })
-          
         );
-        // console.log(enrichedSales)         
+        // console.log(enrichedSales)
 
         res.send(enrichedSales);
       } catch (err) {
@@ -601,23 +575,68 @@ async function run() {
       }
     });
 
+    // to able to see all ads
+    app.get("/allAds", async (req, res) => {
+      try {
+        const ads = await adCollection.find().toArray();
+        res.send(ads);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to fetch advertised medicines" });
+      }
+    });
 
+    // to change the status of an ad
+    app.patch("/allAds/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { show } = req.body; // Expected to be true or false
 
+        const newStatus = show ? "Approved" : "Pending";
 
+        const result = await adCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: newStatus } }
+        );
 
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating ad status:", error);
+        res.status(500).send({ error: "Failed to update ad status" });
+      }
+    });
 
+    // to get all the approved ads
+    app.get("/approvedAds", async (req, res) => {
+      try {
+        const sliderAds = await adCollection
+          .find({ status: "Approved" })
+          .project({
+            image: 1,
+            itemName: 1,
+            message: 1,
+            previousPrice: 1,
+            discount: 1,
+            sellerEmail: 1,
+          }) // send what you need
+          .toArray();
+        // console.log(sliderAds)
+        res.send(sliderAds);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to load slider ads" });
+      }
+    });
 
-    
-    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  }
-  finally {
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
+  } finally {
   }
 }
 run().catch(console.dir);
-
 
 app.get("/", (req, res) => {
   res.send("Aroggo server is running");
