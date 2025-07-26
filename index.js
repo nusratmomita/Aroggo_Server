@@ -394,6 +394,61 @@ async function run() {
       }
     });
 
+    // to able to see all ads
+    app.get("/allAds", async (req, res) => {
+      try {
+        const ads = await adCollection.find().toArray();
+        res.send(ads);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to fetch advertised medicines" });
+      }
+    });
+
+    // to change the status of an ad
+    app.patch("/allAds/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { show } = req.body; // Expected to be true or false
+
+        const newStatus = show ? "Approved" : "Pending";
+
+        const result = await adCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: newStatus } }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating ad status:", error);
+        res.status(500).send({ error: "Failed to update ad status" });
+      }
+    });
+
+    // to get all the approved ads
+    app.get("/approvedAds", async (req, res) => {
+      try {
+        const sliderAds = await adCollection
+          .find({ status: "Approved" })
+          .project({
+            image: 1,
+            itemName: 1,
+            message: 1,
+            previousPrice: 1,
+            discount: 1,
+            sellerEmail: 1,
+          }) // send what you need
+          .toArray();
+        console.log(sliderAds)
+        res.send(sliderAds);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to load slider ads" });
+      }
+    });
+
+
+
     // * payment integration
     app.post("/create-payment-intent", async (req, res) => {
       const amountInCents = req.body.totalCostInCents;
@@ -575,59 +630,39 @@ async function run() {
       }
     });
 
-    // to able to see all ads
-    app.get("/allAds", async (req, res) => {
+    // to get the Accepted and Pending saled
+    app.get("/salesRevenue", async (req, res) => {
       try {
-        const ads = await adCollection.find().toArray();
-        res.send(ads);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ error: "Failed to fetch advertised medicines" });
-      }
-    });
+        const pipeline = [
+          {
+            $group: {
+              _id: "$acceptance_status", // Group by payment status
+              totalAmount: { $sum: "$amount" }, // Sum the payment amounts
+            },
+          },
+        ];
 
-    // to change the status of an ad
-    app.patch("/allAds/:id", async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { show } = req.body; // Expected to be true or false
+        const results = await paymentCollection.aggregate(pipeline).toArray();
 
-        const newStatus = show ? "Approved" : "Pending";
+        // Convert the results into a simple object
+        let summary = {
+          Accepted: 0,
+          Pending: 0,
+        };
 
-        const result = await adCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { status: newStatus } }
-        );
+        results.forEach((item) => {
+          if (item._id === "Accepted") summary.Accepted = item.totalAmount;
+          if (item._id === "Pending") summary.Pending = item.totalAmount;
+        });
 
-        res.send(result);
+        res.send(summary);
       } catch (error) {
-        console.error("Error updating ad status:", error);
-        res.status(500).send({ error: "Failed to update ad status" });
+        console.error("Sales summary error:", error);
+        res.status(500).send({ error: "Failed to fetch sales summary" });
       }
     });
 
-    // to get all the approved ads
-    app.get("/approvedAds", async (req, res) => {
-      try {
-        const sliderAds = await adCollection
-          .find({ status: "Approved" })
-          .project({
-            image: 1,
-            itemName: 1,
-            message: 1,
-            previousPrice: 1,
-            discount: 1,
-            sellerEmail: 1,
-          }) // send what you need
-          .toArray();
-        console.log(sliderAds)
-        res.send(sliderAds);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ error: "Failed to load slider ads" });
-      }
-    });
-
+    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
