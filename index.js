@@ -620,7 +620,7 @@ async function run() {
             sellerEmail: 1,
           }) // send what you need
           .toArray();
-        // console.log(sliderAds)
+        console.log(sliderAds)
         res.send(sliderAds);
       } catch (err) {
         console.error(err);
