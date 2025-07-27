@@ -82,6 +82,24 @@ async function run() {
       }
     });
 
+    // to get who is the admin/user/seller by using email query
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+
+      if (!email) {
+        return res.status(400).send({ message: "Email is required" });
+      }
+
+      const result = await usersCollection.findOne({ email });
+
+      if (!result) {
+        return res.status(404).send({ message: "User not found" });
+      }
+      // console.log(result)
+      res.send({ role: result.role || "user" });
+      // res.send(result)
+    });
+
     // * medicine
     // to get all the medicines
     app.get("/medicines", async (req, res) => {
@@ -439,7 +457,7 @@ async function run() {
             sellerEmail: 1,
           }) // send what you need
           .toArray();
-        console.log(sliderAds)
+        // console.log(sliderAds)
         res.send(sliderAds);
       } catch (err) {
         console.error(err);
@@ -464,7 +482,6 @@ async function run() {
 
     // to get payment for each user
     app.get("/payment", async (req, res) => {
-      // console.log('access token from header', req.headers)
       const email = req.query.email;
 
       const query = email ? { email: email } : {};
@@ -561,11 +578,11 @@ async function run() {
           cartItems.length > 0 &&
           cartItems.every((item) => item.payment_status === "Paid");
 
-        console.log(
-          "Found cart items:",
-          cartItems.map((i) => i._id.toString())
-        );
-        console.log("All paid?", allPaid);
+        // console.log(
+        //   "Found cart items:",
+        //   cartItems.map((i) => i._id.toString())
+        // );
+        // console.log("All paid?", allPaid);
 
         if (!allPaid) {
           return res
@@ -630,7 +647,7 @@ async function run() {
       }
     });
 
-    // to get the Accepted and Pending saled
+    // to get the Accepted and Pending sales
     app.get("/salesRevenue", async (req, res) => {
       try {
         const pipeline = [
@@ -661,6 +678,155 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch sales summary" });
       }
     });
+
+    // to sales report for per seller
+    app.get("/salesRevenue/seller", async (req, res) => {
+      try {
+        const { email } = req.query;
+
+        if (!email) {
+          return res.status(400).json({ error: "Email query is required" });
+        }
+
+        const pipeline = [
+  {
+    $match: { acceptance_status: "Accepted" }
+  },
+  {
+    $addFields: {
+      medicineCount: { $size: "$medicineIds" }
+    }
+  },
+  {
+    $unwind: "$medicineIds"
+  },
+  {
+    $lookup: {
+      from: "medicineCollection",
+      let: { medicineId: "$medicineIds" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $eq: ["$_id", "$$medicineId"]
+            }
+          }
+        }
+      ],
+      as: "medicineDetails"
+    }
+  },
+  {
+    $unwind: "$medicineDetails"
+  },
+  {
+    $match: {
+      "medicineDetails.sellerEmail": "nmh@gmail.com"
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      totalSales: {
+        $sum: {
+          $divide: ["$amount", "$medicineCount"]
+        }
+      }
+    }
+  }
+];
+
+        // console.log(pipeline)
+
+        const result = await paymentCollection.aggregate(pipeline).toArray();
+
+
+        const totalSales = result[0]?.totalSales || 0;
+        // console.log(result)
+        // console.log("hi")
+        // console.log(totalSales)
+
+        res.send({ email, totalSales });
+      } catch (error) {
+        console.error("Seller sales revenue error:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+});
+
+app.get("/seller/purchase-history/:email", async (req, res) => {
+  const sellerEmail = req.params.email;
+
+  try {
+    const pipeline = [
+      // Step 1: Only consider completed or pending payments
+      {
+        $match: {
+          acceptance_status: { $in: ["Accepted", null] } // null means pending
+        }
+      },
+      // Step 2: Unwind medicineIds to match individually
+      {
+        $unwind: "$medicineIds"
+      },
+      // Step 3: Lookup medicine details
+      {
+        $lookup: {
+          from: "medicineCollection",
+          let: { medId: "$medicineIds" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$_id", "$$medId"] }
+              }
+            }
+          ],
+          as: "medicineDetails"
+        }
+      },
+      {
+        $unwind: "$medicineDetails"
+      },
+      // Step 4: Filter only the medicines listed by this seller
+      {
+        $match: {
+          "medicineDetails.sellerEmail": sellerEmail
+        }
+      },
+      // Step 5: Add payment status and buyer info
+      {
+        $project: {
+          _id: 0,
+          buyerEmail: "$email",
+          paymentStatus: {
+            $cond: {
+              if: { $eq: ["$acceptance_status", "Accepted"] },
+              then: "Paid",
+              else: "Pending"
+            }
+          },
+          paidAt: "$paid_at_string",
+          medicineName: "$medicineDetails.name",
+          amount: {
+            $divide: ["$amount", { $size: "$medicineIds" }] // average per medicine
+          }
+        }
+      },
+      // Optional: Sort by most recent
+      {
+        $sort: { paidAt: -1 }
+      }
+    ];
+
+    const results = await paymentCollection.aggregate(pipeline).toArray();
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching purchase history", error);
+    res.status(500).json({ message: "Server Error", error });
+  }
+});
+
+
+
 
     
     // Send a ping to confirm a successful connection
