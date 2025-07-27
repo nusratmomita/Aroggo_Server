@@ -1,7 +1,12 @@
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const port = process.env.PORT || 3000;
+
+
+const admin = require("firebase-admin");
+const serviceAccount = require("./aroggo-e998e-firebase-adminsdk.json");
 
 const app = express();
 
@@ -10,7 +15,11 @@ const stripe = require("stripe").Stripe(process.env.PAYMENT_GATEWAY_KEY);
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+// FB admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.1k8uoge.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -24,6 +33,77 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+
+    // FB protecting the APIs
+    const verifyFBToken = async (req, res, next) => {
+      // console.log('token in the middleware', req.headers);
+
+      const authHeader = req.headers.authorization;
+      // console.log(authHeader)
+      if (!authHeader) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+
+      const token = authHeader.split(" ")[1];
+      if (!token) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+      // verify the token
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.decoded = decoded;
+        // console.log('decoded token' ,req.decoded.email)
+        next();
+      } catch (error) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+    };
+
+    // to verify admin from server side
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+
+      const query = { email };
+
+      const user = await usersCollection.findOne(query);
+
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      next();
+    };
+
+    // to verify seller from server side
+    const verifySeller = async (req, res, next) => {
+      const email = req.decoded.email;
+
+      const query = { email };
+
+      const user = await usersCollection.findOne(query);
+
+      if (!user || user.role !== "seller") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      next();
+    };
+
+    // to verify admin from server side
+    const verifyUser = async (req, res, next) => {
+      const email = req.decoded.email;
+
+      const query = { email };
+
+      const user = await usersCollection.findOne(query);
+
+      if (!user || user.role !== "user") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      next();
+    };
+
     // collections
     const usersCollection = client.db("Aroggo").collection("users");
     const medicineCollection = client.db("Aroggo").collection("medicines");
@@ -34,7 +114,7 @@ async function run() {
 
     // * users
     // to get all the user
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyFBToken , async (req, res) => {
       try {
         const users = await usersCollection.find().toArray();
         res.send(users);
@@ -44,7 +124,7 @@ async function run() {
     });
 
     // to create a user that is unique in the system
-    app.post("/users", async (req, res) => {
+    app.post("/users", verifyFBToken , async (req, res) => {
       const email = req.body.email;
 
       const userExit = await usersCollection.findOne({ email });
@@ -61,7 +141,7 @@ async function run() {
     });
 
     // to change current role of a user & make an Admin
-    app.patch("/users/role/:id", async (req, res) => {
+    app.patch("/users/role/:id", verifyFBToken , verifyAdmin ,async (req, res) => {
       try {
         const id = req.params.id;
         const { role } = req.body;
@@ -83,7 +163,7 @@ async function run() {
     });
 
     // to get who is the admin/user/seller by using email query
-    app.get("/users/:email/role", async (req, res) => {
+    app.get("/users/:email/role", verifyFBToken, async (req, res) => {
       const email = req.params.email;
 
       if (!email) {
@@ -95,14 +175,18 @@ async function run() {
       if (!result) {
         return res.status(404).send({ message: "User not found" });
       }
-      // console.log(result)
+    
       res.send({ role: result.role || "user" });
-      // res.send(result)
     });
+
+
+
+
+
 
     // * medicine
     // to get all the medicines
-    app.get("/medicines", async (req, res) => {
+    app.get("/medicines", verifyFBToken , async (req, res) => {
       try {
         const medicines = await medicineCollection.find({}).toArray();
         res.status(200).send(medicines);
@@ -113,7 +197,7 @@ async function run() {
     });
 
     // to get medicines added by a specific seller
-    app.get("/medicines/email", async (req, res) => {
+    app.get("/medicines/email", verifyFBToken , async (req, res) => {
       try {
         const email = req.query.email;
 
@@ -133,7 +217,7 @@ async function run() {
     });
 
     // to get category wise medicines
-    app.get("/category", async (req, res) => {
+    app.get("/category", verifyFBToken , async (req, res) => {
       try {
         const result = await medicineCollection
           .aggregate([
@@ -162,7 +246,7 @@ async function run() {
     });
 
     // to get medicines for a specific category
-    app.get("/category/medicines", async (req, res) => {
+    app.get("/category/medicines", verifyFBToken , async (req, res) => {
       try {
         const category = req.query.category;
 
@@ -183,7 +267,7 @@ async function run() {
     });
 
     // to add a new medicine
-    app.post("/medicines", async (req, res) => {
+    app.post("/medicines", verifyFBToken , async (req, res) => {
       const medicineInfo = req.body;
 
       const result = await medicineCollection.insertOne(medicineInfo);
@@ -192,7 +276,7 @@ async function run() {
 
     // * category
     // to get the categories
-    app.get("/categories", async (req, res) => {
+    app.get("/categories", verifyFBToken , async (req, res) => {
       try {
         const result = await categoryCollection.find().toArray();
         res.send(result);
@@ -202,7 +286,7 @@ async function run() {
     });
 
     // to create a new category
-    app.post("/categories", async (req, res) => {
+    app.post("/categories", verifyFBToken , async (req, res) => {
       const { categoryName, categoryImage, added_at } = req.body;
 
       if (!categoryName || !categoryImage) {
@@ -224,7 +308,7 @@ async function run() {
     });
 
     // to update a categories info
-    app.patch("/categories/:id", async (req, res) => {
+    app.patch("/categories/:id", verifyFBToken , async (req, res) => {
       const { id } = req.params;
       const { categoryName, categoryImage } = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -244,7 +328,7 @@ async function run() {
     });
 
     // to delete a category
-    app.delete("/categories/:id", async (req, res) => {
+    app.delete("/categories/:id", verifyFBToken , async (req, res) => {
       const { id } = req.params;
 
       const result = await categoryCollection.deleteOne({
@@ -256,7 +340,7 @@ async function run() {
 
     // * my cart
     // to get cart items for a specific user
-    app.get("/myCart", async (req, res) => {
+    app.get("/myCart", verifyFBToken , async (req, res) => {
       try {
         const { email } = req.query;
         if (!email)
@@ -271,7 +355,7 @@ async function run() {
     });
 
     // to add a new item to the cart
-    app.post("/myCart", async (req, res) => {
+    app.post("/myCart", verifyFBToken , async (req, res) => {
       try {
         const {
           email,
@@ -318,7 +402,7 @@ async function run() {
     });
 
     // to increment/decrement the cart items
-    app.patch("/myCart/ChangeQuantity/:id", async (req, res) => {
+    app.patch("/myCart/ChangeQuantity/:id", verifyFBToken , async (req, res) => {
       try {
         const id = req.params.id;
         const { change } = req.body; // change +1 or -1
@@ -340,7 +424,7 @@ async function run() {
     });
 
     // to remove a single item from cart
-    app.delete("/myCart/singleItem/:id", async (req, res) => {
+    app.delete("/myCart/singleItem/:id", verifyFBToken ,  async (req, res) => {
       try {
         const id = req.params.id;
         const result = await cartCollection.deleteOne({
@@ -355,7 +439,7 @@ async function run() {
     });
 
     // to clear everything from the cart
-    app.delete("/myCart/remove", async (req, res) => {
+    app.delete("/myCart/remove", verifyFBToken ,  async (req, res) => {
       try {
         const { email } = req.query;
         if (!email)
@@ -371,7 +455,7 @@ async function run() {
 
     // * ads
     // to get ads per email
-    app.get("/adRequest/email", async (req, res) => {
+    app.get("/adRequest/email", verifyFBToken , async (req, res) => {
       try {
         const email = req.query.email;
 
@@ -392,7 +476,7 @@ async function run() {
     });
 
     // to create ads
-    app.post("/adRequest", async (req, res) => {
+    app.post("/adRequest", verifyFBToken , async (req, res) => {
       try {
         const adRequest = req.body;
 
@@ -413,7 +497,7 @@ async function run() {
     });
 
     // to able to see all ads
-    app.get("/allAds", async (req, res) => {
+    app.get("/allAds", verifyFBToken , async (req, res) => {
       try {
         const ads = await adCollection.find().toArray();
         res.send(ads);
@@ -424,7 +508,7 @@ async function run() {
     });
 
     // to change the status of an ad
-    app.patch("/allAds/:id", async (req, res) => {
+    app.patch("/allAds/:id", verifyFBToken , async (req, res) => {
       try {
         const { id } = req.params;
         const { show } = req.body; // Expected to be true or false
@@ -444,7 +528,7 @@ async function run() {
     });
 
     // to get all the approved ads
-    app.get("/approvedAds", async (req, res) => {
+    app.get("/approvedAds", verifyFBToken , async (req, res) => {
       try {
         const sliderAds = await adCollection
           .find({ status: "Approved" })
@@ -468,7 +552,7 @@ async function run() {
 
 
     // * payment integration
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyFBToken , async (req, res) => {
       const amountInCents = req.body.totalCostInCents;
 
       const paymentIntent = await stripe.paymentIntents.create({
@@ -481,7 +565,7 @@ async function run() {
     });
 
     // to get payment for each user
-    app.get("/payment", async (req, res) => {
+    app.get("/payment", verifyFBToken , async (req, res) => {
       const email = req.query.email;
 
       const query = email ? { email: email } : {};
@@ -492,7 +576,7 @@ async function run() {
     });
 
     // to record payment and update parcel status
-    app.post("/payment", async (req, res) => {
+    app.post("/payment", verifyFBToken , async (req, res) => {
       try {
         const { cartItemIds, email, amount, paymentMethod, transactionId } =
           req.body;
@@ -528,7 +612,7 @@ async function run() {
     });
 
     // to get the payment status from cartCollection for admin to accept payment
-    app.get("/paymentStatus", async (req, res) => {
+    app.get("/paymentStatus", verifyFBToken , async (req, res) => {
       try {
         const statuses = await cartCollection
           .find(
@@ -543,7 +627,7 @@ async function run() {
     });
 
     // to get the acceptance status from paymentCollection for admin to accept payment
-    app.get("/acceptanceStatus", async (req, res) => {
+    app.get("/acceptanceStatus", verifyFBToken , async (req, res) => {
       try {
         const statuses = await paymentCollection
           .find({}, { projection: { acceptance_status: 1, email: 1 } })
@@ -555,7 +639,7 @@ async function run() {
     });
 
     // to accept a pending payment
-    app.patch("/acceptanceStatus/:id", async (req, res) => {
+    app.patch("/acceptanceStatus/:id", verifyFBToken , async (req, res) => {
       const id = req.params.id;
 
       try {
@@ -602,7 +686,7 @@ async function run() {
     });
 
     // to get sales report for admin
-    app.get("/salesReport", async (req, res) => {
+    app.get("/salesReport", verifyFBToken , async (req, res) => {
       try {
         const { startDate, endDate } = req.query;
 
@@ -648,7 +732,7 @@ async function run() {
     });
 
     // to get the Accepted and Pending sales
-    app.get("/salesRevenue", async (req, res) => {
+    app.get("/salesRevenue", verifyFBToken , async (req, res) => {
       try {
         const pipeline = [
           {
@@ -680,7 +764,7 @@ async function run() {
     });
 
     // to sales report for per seller
-    app.get("/salesRevenue/seller", async (req, res) => {
+    app.get("/salesRevenue/seller", verifyFBToken , async (req, res) => {
       try {
         const { email } = req.query;
 
@@ -689,52 +773,52 @@ async function run() {
         }
 
         const pipeline = [
-  {
-    $match: { acceptance_status: "Accepted" }
-  },
-  {
-    $addFields: {
-      medicineCount: { $size: "$medicineIds" }
-    }
-  },
-  {
-    $unwind: "$medicineIds"
-  },
-  {
-    $lookup: {
-      from: "medicineCollection",
-      let: { medicineId: "$medicineIds" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $eq: ["$_id", "$$medicineId"]
+          {
+            $match: { acceptance_status: "Accepted" }
+          },
+          {
+            $addFields: {
+              medicineCount: { $size: "$medicineIds" }
+            }
+          },
+          {
+            $unwind: "$medicineIds"
+          },
+          {
+            $lookup: {
+              from: "medicineCollection",
+              let: { medicineId: "$medicineIds" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$_id", "$$medicineId"]
+                    }
+                  }
+                }
+              ],
+              as: "medicineDetails"
+            }
+          },
+          {
+            $unwind: "$medicineDetails"
+          },
+          {
+            $match: {
+              "medicineDetails.sellerEmail": "nmh@gmail.com"
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalSales: {
+                $sum: {
+                  $divide: ["$amount", "$medicineCount"]
+                }
+              }
             }
           }
-        }
-      ],
-      as: "medicineDetails"
-    }
-  },
-  {
-    $unwind: "$medicineDetails"
-  },
-  {
-    $match: {
-      "medicineDetails.sellerEmail": "nmh@gmail.com"
-    }
-  },
-  {
-    $group: {
-      _id: null,
-      totalSales: {
-        $sum: {
-          $divide: ["$amount", "$medicineCount"]
-        }
-      }
-    }
-  }
-];
+        ];
 
         // console.log(pipeline)
 
@@ -743,7 +827,6 @@ async function run() {
 
         const totalSales = result[0]?.totalSales || 0;
         // console.log(result)
-        // console.log("hi")
         // console.log(totalSales)
 
         res.send({ email, totalSales });
@@ -751,79 +834,79 @@ async function run() {
         console.error("Seller sales revenue error:", error);
         res.status(500).json({ error: "Internal server error" });
       }
-});
+  });
 
-app.get("/seller/purchase-history/:email", async (req, res) => {
-  const sellerEmail = req.params.email;
+  app.get("/seller/purchase-history/:email", verifyFBToken , async (req, res) => {
+    const sellerEmail = req.params.email;
 
-  try {
-    const pipeline = [
-      // Step 1: Only consider completed or pending payments
-      {
-        $match: {
-          acceptance_status: { $in: ["Accepted", null] } // null means pending
-        }
-      },
-      // Step 2: Unwind medicineIds to match individually
-      {
-        $unwind: "$medicineIds"
-      },
-      // Step 3: Lookup medicine details
-      {
-        $lookup: {
-          from: "medicineCollection",
-          let: { medId: "$medicineIds" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$_id", "$$medId"] }
-              }
-            }
-          ],
-          as: "medicineDetails"
-        }
-      },
-      {
-        $unwind: "$medicineDetails"
-      },
-      // Step 4: Filter only the medicines listed by this seller
-      {
-        $match: {
-          "medicineDetails.sellerEmail": sellerEmail
-        }
-      },
-      // Step 5: Add payment status and buyer info
-      {
-        $project: {
-          _id: 0,
-          buyerEmail: "$email",
-          paymentStatus: {
-            $cond: {
-              if: { $eq: ["$acceptance_status", "Accepted"] },
-              then: "Paid",
-              else: "Pending"
-            }
-          },
-          paidAt: "$paid_at_string",
-          medicineName: "$medicineDetails.name",
-          amount: {
-            $divide: ["$amount", { $size: "$medicineIds" }] // average per medicine
+    try {
+      const pipeline = [
+        // Step 1: Only consider completed or pending payments
+        {
+          $match: {
+            acceptance_status: { $in: ["Accepted", null] } // null means pending
           }
+        },
+        // Step 2: Unwind medicineIds to match individually
+        {
+          $unwind: "$medicineIds"
+        },
+        // Step 3: Lookup medicine details
+        {
+          $lookup: {
+            from: "medicineCollection",
+            let: { medId: "$medicineIds" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$medId"] }
+                }
+              }
+            ],
+            as: "medicineDetails"
+          }
+        },
+        {
+          $unwind: "$medicineDetails"
+        },
+        // Step 4: Filter only the medicines listed by this seller
+        {
+          $match: {
+            "medicineDetails.sellerEmail": sellerEmail
+          }
+        },
+        // Step 5: Add payment status and buyer info
+        {
+          $project: {
+            _id: 0,
+            buyerEmail: "$email",
+            paymentStatus: {
+              $cond: {
+                if: { $eq: ["$acceptance_status", "Accepted"] },
+                then: "Paid",
+                else: "Pending"
+              }
+            },
+            paidAt: "$paid_at_string",
+            medicineName: "$medicineDetails.name",
+            amount: {
+              $divide: ["$amount", { $size: "$medicineIds" }] // average per medicine
+            }
+          }
+        },
+        // Optional: Sort by most recent
+        {
+          $sort: { paidAt: -1 }
         }
-      },
-      // Optional: Sort by most recent
-      {
-        $sort: { paidAt: -1 }
-      }
-    ];
+      ];
 
-    const results = await paymentCollection.aggregate(pipeline).toArray();
-    res.status(200).json(results);
-  } catch (error) {
-    console.error("Error fetching purchase history", error);
-    res.status(500).json({ message: "Server Error", error });
-  }
-});
+      const results = await paymentCollection.aggregate(pipeline).toArray();
+      res.status(200).json(results);
+    } catch (error) {
+      console.error("Error fetching purchase history", error);
+      res.status(500).json({ message: "Server Error", error });
+    }
+  });
 
 
 
