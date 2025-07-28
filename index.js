@@ -286,8 +286,12 @@ async function run() {
       const page = parseInt(req.query.page);
       const items = parseInt(req.query.items);
 
+      const sortBy = req.query.sortBy || "name"; // default sort field
+      const order = req.query.order === "desc" ? -1 : 1; // ascending by default
+
       const result = await medicineCollection.
                     find().
+                    sort({ [sortBy]: order })
                     skip(page * items).
                     limit(items).
                     toArray();
@@ -391,11 +395,20 @@ async function run() {
       const page = parseInt(req.query.page) || 0;
       const items = parseInt(req.query.items) || 5;
 
-      const filter = { sellerEmail: email };
+      const sortBy = req.query.sortBy || "name"; // default sort field
+      const order = req.query.order === "desc" ? -1 : 1; // ascending by default
+      
+      const search = req.query.search || "";
+
+      const filter = { 
+        sellerEmail: email,
+        name: {$regex: search, $options: "i"}
+      };
 
       const total = await medicineCollection.countDocuments(filter);
       const result = await medicineCollection
         .find(filter)
+        .sort({ [sortBy]: order }) // dynamic sort
         .skip(page * items)
         .limit(items)
         .toArray();
