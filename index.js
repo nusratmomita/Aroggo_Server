@@ -281,6 +281,7 @@ async function run() {
       res.send({count});
     });
 
+    // to get medicines per page 
     app.get("/medicinePagination" , async(req,res)=>{
       const page = parseInt(req.query.page);
       const items = parseInt(req.query.items);
@@ -356,6 +357,30 @@ async function run() {
       const result = await categoryCollection.deleteOne({
         _id: new ObjectId(id),
       });
+
+      res.send(result);
+    });
+
+    // to implement pagination for category 
+    app.get("/categoryCount", async (req, res) => {
+      const category = req.query.category;
+      const count = await medicineCollection.countDocuments({ category });
+      res.send({ count });
+    });
+
+    // to get category medicine per page
+    app.get("/categoryPagination", async (req, res) => {
+      const category = req.query.category;
+      const page = parseInt(req.query.page) || 0;
+      const items = parseInt(req.query.items) || 5;
+
+      const query = { category };
+
+      const result = await medicineCollection
+        .find(query)
+        .skip(page * items)
+        .limit(items)
+        .toArray();
 
       res.send(result);
     });
