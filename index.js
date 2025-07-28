@@ -289,13 +289,27 @@ async function run() {
       const sortBy = req.query.sortBy || "name"; // default sort field
       const order = req.query.order === "desc" ? -1 : 1; // ascending by default
 
-      const result = await medicineCollection.
-                    find().
-                    sort({ [sortBy]: order })
-                    skip(page * items).
-                    limit(items).
-                    toArray();
-      res.send(result);
+      const search = req.query.search || "";
+
+      const filter = {
+        name: {$regex: search, $options: "i"}
+      };
+
+      try {
+        const total = await medicineCollection.countDocuments(filter);
+
+        const result = await medicineCollection
+          .find(filter)
+          .sort({ [sortBy]: order })
+          .skip(page * items)
+          .limit(items)
+          .toArray();
+
+          res.send({ result, total });
+      } 
+      catch (error) {
+          res.status(500).send({ message: "Server Error", error });
+      }
     })
 
 
