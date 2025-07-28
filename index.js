@@ -274,6 +274,28 @@ async function run() {
       res.send(result);
     });
 
+
+    // to implement pagination on Medicine page
+    app.get("/medicineCount" , async(req,res)=>{
+      const count = await medicineCollection.estimatedDocumentCount();
+      res.send({count});
+    });
+
+    app.get("/medicinePagination" , async(req,res)=>{
+      const page = parseInt(req.query.page);
+      const items = parseInt(req.query.items);
+
+      const result = await medicineCollection.
+                    find().
+                    skip(page * items).
+                    limit(items).
+                    toArray();
+      res.send(result);
+    })
+
+
+
+
     // * category
     // to get the categories
     app.get("/categories", verifyFBToken , async (req, res) => {
