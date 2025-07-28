@@ -385,6 +385,24 @@ async function run() {
       res.send(result);
     });
 
+    // to implement pagination for manage medicine in seller page
+    app.get("/medicines/emailPagination", async (req, res) => {
+      const email = req.query.email;
+      const page = parseInt(req.query.page) || 0;
+      const items = parseInt(req.query.items) || 5;
+
+      const filter = { sellerEmail: email };
+
+      const total = await medicineCollection.countDocuments(filter);
+      const result = await medicineCollection
+        .find(filter)
+        .skip(page * items)
+        .limit(items)
+        .toArray();
+
+      res.send({ result, total });
+    });
+
     // * my cart
     // to get cart items for a specific user
     app.get("/myCart", verifyFBToken , async (req, res) => {
