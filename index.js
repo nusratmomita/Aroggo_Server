@@ -388,20 +388,37 @@ async function run() {
 
     // to get category medicine per page
     app.get("/categoryPagination", async (req, res) => {
-      const category = req.query.category;
-      const page = parseInt(req.query.page) || 0;
-      const items = parseInt(req.query.items) || 5;
+  try {
+    const category = req.query.category;
+    const page = parseInt(req.query.page) || 0;
+    const items = parseInt(req.query.items) || 5;
 
-      const query = { category };
+    const sortBy = req.query.sortBy || "name"; // e.g. name, price, discount, added_at
+    const order = req.query.order === "desc" ? -1 : 1;
 
-      const result = await medicineCollection
-        .find(query)
-        .skip(page * items)
-        .limit(items)
-        .toArray();
+    const search = req.query.search || "";
 
-      res.send(result);
+    const query = {
+      category,
+      name: { $regex: search, $options: "i" },
+    };
+
+    const total = await medicineCollection.countDocuments(query);
+
+    const result = await medicineCollection
+      .find(query)
+      .sort({ [sortBy]: order })
+      .skip(page * items)
+      .limit(items)
+      .toArray();
+
+    res.send({ result, total });
+  } catch (error) {
+    console.error("Error fetching category medicines:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
     });
+
 
     // to implement pagination for manage medicine in seller page
     app.get("/medicines/emailPagination", async (req, res) => {
