@@ -6,7 +6,8 @@ const port = process.env.PORT || 3000;
 
 
 const admin = require("firebase-admin");
-const serviceAccount = require("./aroggo-e998e-firebase-adminsdk.json");
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
+const serviceAccount = JSON.parse(decodedKey);
 
 const app = express();
 
@@ -124,7 +125,7 @@ async function run() {
     });
 
     // to create a user that is unique in the system
-    app.post("/users", verifyFBToken , async (req, res) => {
+    app.post("/users" , async (req, res) => {
       const email = req.body.email;
 
       const userExit = await usersCollection.findOne({ email });
@@ -141,7 +142,7 @@ async function run() {
     });
 
     // to change current role of a user & make an Admin
-    app.patch("/users/role/:id", verifyFBToken , verifyAdmin ,async (req, res) => {
+    app.patch("/users/role/:id", verifyFBToken  ,async (req, res) => {
       try {
         const id = req.params.id;
         const { role } = req.body;
@@ -181,7 +182,7 @@ async function run() {
 
 
     // to get payment history of an user
-    app.get("/paymentHistoryUser/:email", async (req, res) => {
+    app.get("/paymentHistoryUser/:email", verifyFBToken, async (req, res) => {
       const buyerEmail = req.params.email;
 
       try {
@@ -300,7 +301,7 @@ async function run() {
     });
 
     // to add a new medicine
-    app.post("/medicines", verifyFBToken , async (req, res) => {
+    app.post("/medicines" , async (req, res) => {
       const medicineInfo = req.body;
 
       const result = await medicineCollection.insertOne(medicineInfo);
@@ -309,13 +310,13 @@ async function run() {
 
 
     // to implement pagination on Medicine page
-    app.get("/medicineCount" , async(req,res)=>{
+    app.get("/medicineCount"  , async(req,res)=>{
       const count = await medicineCollection.estimatedDocumentCount();
       res.send({count});
     });
 
     // to get medicines per page 
-    app.get("/medicinePagination" , async(req,res)=>{
+    app.get("/medicinePagination" ,verifyFBToken , async(req,res)=>{
       const page = parseInt(req.query.page);
       const items = parseInt(req.query.items);
 
@@ -360,7 +361,7 @@ async function run() {
     });
 
     // to create a new category
-    app.post("/categories", verifyFBToken , async (req, res) => {
+    app.post("/categories" , async (req, res) => {
       const { categoryName, categoryImage, added_at } = req.body;
 
       if (!categoryName || !categoryImage) {
@@ -382,7 +383,7 @@ async function run() {
     });
 
     // to update a categories info
-    app.patch("/categories/:id", verifyFBToken , async (req, res) => {
+    app.patch("/categories/:id" , async (req, res) => {
       const { id } = req.params;
       const { categoryName, categoryImage } = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -402,7 +403,7 @@ async function run() {
     });
 
     // to delete a category
-    app.delete("/categories/:id", verifyFBToken , async (req, res) => {
+    app.delete("/categories/:id" , async (req, res) => {
       const { id } = req.params;
 
       const result = await categoryCollection.deleteOne({
@@ -413,14 +414,14 @@ async function run() {
     });
 
     // to implement pagination for category 
-    app.get("/categoryCount", async (req, res) => {
+    app.get("/categoryCount", verifyFBToken , async (req, res) => {
       const category = req.query.category;
       const count = await medicineCollection.countDocuments({ category });
       res.send({ count });
     });
 
     // to get category medicine per page
-    app.get("/categoryPagination", async (req, res) => {
+    app.get("/categoryPagination", verifyFBToken , async (req, res) => {
       try {
         const category = req.query.category;
         const page = parseInt(req.query.page) || 0;
@@ -454,7 +455,7 @@ async function run() {
 
 
     // to implement pagination for manage medicine in seller page
-    app.get("/medicines/emailPagination", async (req, res) => {
+    app.get("/medicines/emailPagination", verifyFBToken ,  async (req, res) => {
       const email = req.query.email;
       const page = parseInt(req.query.page) || 0;
       const items = parseInt(req.query.items) || 5;
@@ -497,7 +498,7 @@ async function run() {
     });
 
     // to add a new item to the cart
-    app.post("/myCart", verifyFBToken , async (req, res) => {
+    app.post("/myCart" , async (req, res) => {
       try {
         const {
           email,
@@ -544,7 +545,7 @@ async function run() {
     });
 
     // to increment/decrement the cart items
-    app.patch("/myCart/ChangeQuantity/:id", verifyFBToken , async (req, res) => {
+    app.patch("/myCart/ChangeQuantity/:id" , async (req, res) => {
       try {
         const id = req.params.id;
         const { change } = req.body; // change +1 or -1
@@ -566,7 +567,7 @@ async function run() {
     });
 
     // to remove a single item from cart
-    app.delete("/myCart/singleItem/:id", verifyFBToken ,  async (req, res) => {
+    app.delete("/myCart/singleItem/:id" ,  async (req, res) => {
       try {
         const id = req.params.id;
         const result = await cartCollection.deleteOne({
@@ -581,7 +582,7 @@ async function run() {
     });
 
     // to clear everything from the cart
-    app.delete("/myCart/remove", verifyFBToken ,  async (req, res) => {
+    app.delete("/myCart/remove" ,  async (req, res) => {
       try {
         const { email } = req.query;
         if (!email)
@@ -618,7 +619,7 @@ async function run() {
     });
 
     // to create ads
-    app.post("/adRequest", verifyFBToken , async (req, res) => {
+    app.post("/adRequest" , async (req, res) => {
       try {
         const adRequest = req.body;
 
@@ -650,7 +651,7 @@ async function run() {
     });
 
     // to change the status of an ad
-    app.patch("/allAds/:id", verifyFBToken , async (req, res) => {
+    app.patch("/allAds/:id", verifyFBToken ,  async (req, res) => {
       try {
         const { id } = req.params;
         const { show } = req.body; // Expected to be true or false
@@ -1006,10 +1007,10 @@ async function run() {
 
     
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
   }
 }
@@ -1020,5 +1021,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Aroggo server is running on port,${port}`);
+  // console.log(`Aroggo server is running on port,${port}`);
 });
