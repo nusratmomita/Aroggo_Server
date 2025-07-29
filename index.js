@@ -180,6 +180,39 @@ async function run() {
     });
 
 
+    // to get payment history of an user
+    app.get("/paymentHistoryUser/:email", async (req, res) => {
+      const buyerEmail = req.params.email;
+
+      try {
+        const history = await paymentCollection
+          .find({ email: buyerEmail })
+          .project({
+            _id: 0,
+            transactionId: "$transactionId",
+            paymentStatus: {
+              $cond: {
+                if: { $eq: ["$acceptance_status", "Accepted"] },
+                then: "Paid",
+                else: "Pending"
+              }
+            },
+            amount: 1,
+            acceptance_status: 1,
+            paidAt: "$paid_at_string"
+          })
+          .sort({ paid_at_string: -1 }) // show latest first
+          .toArray();
+
+        res.status(200).json(history);
+      } catch (error) {
+        console.error("Error fetching payment history:", error);
+        res.status(500).json({ message: "Server Error", error });
+      }
+    });
+
+
+
 
 
 
@@ -388,35 +421,35 @@ async function run() {
 
     // to get category medicine per page
     app.get("/categoryPagination", async (req, res) => {
-  try {
-    const category = req.query.category;
-    const page = parseInt(req.query.page) || 0;
-    const items = parseInt(req.query.items) || 5;
+      try {
+        const category = req.query.category;
+        const page = parseInt(req.query.page) || 0;
+        const items = parseInt(req.query.items) || 5;
 
-    const sortBy = req.query.sortBy || "name"; // e.g. name, price, discount, added_at
-    const order = req.query.order === "desc" ? -1 : 1;
+        const sortBy = req.query.sortBy || "name"; // e.g. name, price, discount, added_at
+        const order = req.query.order === "desc" ? -1 : 1;
 
-    const search = req.query.search || "";
+        const search = req.query.search || "";
 
-    const query = {
-      category,
-      name: { $regex: search, $options: "i" },
-    };
+        const query = {
+          category,
+          name: { $regex: search, $options: "i" },
+        };
 
-    const total = await medicineCollection.countDocuments(query);
+        const total = await medicineCollection.countDocuments(query);
 
-    const result = await medicineCollection
-      .find(query)
-      .sort({ [sortBy]: order })
-      .skip(page * items)
-      .limit(items)
-      .toArray();
+        const result = await medicineCollection
+          .find(query)
+          .sort({ [sortBy]: order })
+          .skip(page * items)
+          .limit(items)
+          .toArray();
 
-    res.send({ result, total });
-  } catch (error) {
-    console.error("Error fetching category medicines:", error);
-    res.status(500).send({ message: "Internal Server Error" });
-  }
+        res.send({ result, total });
+      } catch (error) {
+        console.error("Error fetching category medicines:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
     });
 
 
@@ -873,149 +906,100 @@ async function run() {
     });
 
     // to sales report for per seller
-    app.get("/salesRevenue/seller", verifyFBToken , async (req, res) => {
+    app.get("/seller/payments", async (req, res) => {
+      const sellerEmail = req.query.email;
+      if (!sellerEmail) {
+        return res.status(400).send({ message: "Seller email is required" });
+      }
+
       try {
-        const { email } = req.query;
-
-        if (!email) {
-          return res.status(400).json({ error: "Email query is required" });
-        }
-
         const pipeline = [
           {
-            $match: { acceptance_status: "Accepted" }
-          },
-          {
-            $addFields: {
-              medicineCount: { $size: "$medicineIds" }
-            }
-          },
-          {
-            $unwind: "$medicineIds"
+            $unwind: "$medicineIds",
           },
           {
             $lookup: {
               from: "medicineCollection",
-              let: { medicineId: "$medicineIds" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ["$_id", "$$medicineId"]
-                    }
-                  }
-                }
-              ],
-              as: "medicineDetails"
-            }
+              localField: "medicineIds",
+              foreignField: "_id",
+              as: "medicineDetails",
+            },
           },
           {
-            $unwind: "$medicineDetails"
+            $unwind: "$medicineDetails",
           },
           {
             $match: {
-              "medicineDetails.sellerEmail": "nmh@gmail.com"
-            }
+              "medicineDetails.sellerEmail": "momita@gmail.com",
+            },
           },
           {
-            $group: {
-              _id: null,
-              totalSales: {
-                $sum: {
-                  $divide: ["$amount", "$medicineCount"]
-                }
-              }
-            }
-          }
+            $project: {
+              _id: 0,
+              name: "$medicineDetails.name",
+              image: "$medicineDetails.image",
+              price: "$medicineDetails.price",
+              paymentStatus: {
+                $cond: {
+                  if: { $eq: ["$acceptance_status", "Accepted"] },
+                  then: "Paid",
+                  else: "Pending",
+                },
+              },
+              buyerEmail: "$email",
+              transactionId: 1,
+              paid_at: "$paid_at_string",
+            },
+          },
         ];
 
-        // console.log(pipeline)
-
-        const result = await paymentCollection.aggregate(pipeline).toArray();
-
-
-        const totalSales = result[0]?.totalSales || 0;
-        // console.log(result)
-        // console.log(totalSales)
-
-        res.send({ email, totalSales });
-      } catch (error) {
-        console.error("Seller sales revenue error:", error);
-        res.status(500).json({ error: "Internal server error" });
-      }
-  });
-
-  app.get("/seller/purchase-history/:email", verifyFBToken , async (req, res) => {
-    const sellerEmail = req.params.email;
-
-    try {
-      const pipeline = [
-        // Step 1: Only consider completed or pending payments
-        {
-          $match: {
-            acceptance_status: { $in: ["Accepted", null] } // null means pending
-          }
-        },
-        // Step 2: Unwind medicineIds to match individually
-        {
-          $unwind: "$medicineIds"
-        },
-        // Step 3: Lookup medicine details
-        {
-          $lookup: {
-            from: "medicineCollection",
-            let: { medId: "$medicineIds" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$medId"] }
-                }
-              }
-            ],
-            as: "medicineDetails"
-          }
-        },
-        {
-          $unwind: "$medicineDetails"
-        },
-        // Step 4: Filter only the medicines listed by this seller
-        {
-          $match: {
-            "medicineDetails.sellerEmail": sellerEmail
-          }
-        },
-        // Step 5: Add payment status and buyer info
-        {
-          $project: {
-            _id: 0,
-            buyerEmail: "$email",
-            paymentStatus: {
-              $cond: {
-                if: { $eq: ["$acceptance_status", "Accepted"] },
-                then: "Paid",
-                else: "Pending"
-              }
-            },
-            paidAt: "$paid_at_string",
-            medicineName: "$medicineDetails.name",
-            amount: {
-              $divide: ["$amount", { $size: "$medicineIds" }] // average per medicine
-            }
-          }
-        },
-        // Optional: Sort by most recent
-        {
-          $sort: { paidAt: -1 }
-        }
-      ];
-
-      const results = await paymentCollection.aggregate(pipeline).toArray();
-      res.status(200).json(results);
-    } catch (error) {
-      console.error("Error fetching purchase history", error);
-      res.status(500).json({ message: "Server Error", error });
+         const result = await paymentCollection.aggregate([
+  {
+    $match: {
+      acceptance_status: "Accepted"
     }
-  });
+  },
+  {
+    $unwind: "$medicineIds"
+  },
+  {
+    $lookup: {
+      from: "medicineCollection",
+      localField: "medicineIds",
+      foreignField: "_id",
+      as: "medicineDetails"
+    }
+  },
+  {
+    $unwind: "$medicineDetails"
+  },
+  {
+    $match: {
+      "medicineDetails.sellerEmail": "momita@gmail.com"
+    }
+  },
+  {
+    $project: {
+      _id: 1,
+      email: 1,
+      transactionId: 1,
+      paid_at_string: 1,
+      acceptance_status: 1,
+      paymentMethod: 1,
+      amount: 1,
+      medicine: "$medicineDetails.name",
+      price: "$medicineDetails.price",
+      image: "$medicineDetails.image"
+    }
+  }
+]).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error in /seller/payments:", error);
+        res.status(500).send({ message: "Internal server error" });
+      }
+    });
+
 
 
 
