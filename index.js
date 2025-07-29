@@ -115,7 +115,7 @@ async function run() {
 
     // * users
     // to get all the user
-    app.get("/users", verifyFBToken , async (req, res) => {
+    app.get("/users" , async (req, res) => {
       try {
         const users = await usersCollection.find().toArray();
         res.send(users);
@@ -128,12 +128,12 @@ async function run() {
     app.post("/users" , async (req, res) => {
       const email = req.body.email;
 
-      const userExit = await usersCollection.findOne({ email });
-      if (userExit) {
-        return res
-          .status(409)
-          .send({ message: "User already exits", inserted: false });
-      }
+      // const userExit = await usersCollection.findOne({ email });
+      // if (userExit) {
+      //   return res
+      //     .status(409)
+      //     .send({ message: "User already exits", inserted: false });
+      // }
 
       const userInfo = req.body;
 
@@ -142,7 +142,7 @@ async function run() {
     });
 
     // to change current role of a user & make an Admin
-    app.patch("/users/role/:id", verifyFBToken  ,async (req, res) => {
+    app.patch("/users/role/:id"  ,async (req, res) => {
       try {
         const id = req.params.id;
         const { role } = req.body;
@@ -164,7 +164,7 @@ async function run() {
     });
 
     // to get who is the admin/user/seller by using email query
-    app.get("/users/:email/role", verifyFBToken, async (req, res) => {
+    app.get("/users/:email/role", async (req, res) => {
       const email = req.params.email;
 
       if (!email) {
@@ -182,7 +182,7 @@ async function run() {
 
 
     // to get payment history of an user
-    app.get("/paymentHistoryUser/:email", verifyFBToken, async (req, res) => {
+    app.get("/paymentHistoryUser/:email", async (req, res) => {
       const buyerEmail = req.params.email;
 
       try {
@@ -220,7 +220,7 @@ async function run() {
 
     // * medicine
     // to get all the medicines
-    app.get("/medicines", verifyFBToken , async (req, res) => {
+    app.get("/medicines" , async (req, res) => {
       try {
         const medicines = await medicineCollection.find({}).toArray();
         res.status(200).send(medicines);
@@ -231,7 +231,7 @@ async function run() {
     });
 
     // to get medicines added by a specific seller
-    app.get("/medicines/email", verifyFBToken , async (req, res) => {
+    app.get("/medicines/email" , async (req, res) => {
       try {
         const email = req.query.email;
 
@@ -251,7 +251,7 @@ async function run() {
     });
 
     // to get category wise medicines
-    app.get("/category", verifyFBToken , async (req, res) => {
+    app.get("/category" , async (req, res) => {
       try {
         const result = await medicineCollection
           .aggregate([
@@ -280,7 +280,7 @@ async function run() {
     });
 
     // to get medicines for a specific category
-    app.get("/category/medicines", verifyFBToken , async (req, res) => {
+    app.get("/category/medicines" , async (req, res) => {
       try {
         const category = req.query.category;
 
@@ -316,7 +316,7 @@ async function run() {
     });
 
     // to get medicines per page 
-    app.get("/medicinePagination" ,verifyFBToken , async(req,res)=>{
+    app.get("/medicinePagination" , async(req,res)=>{
       const page = parseInt(req.query.page);
       const items = parseInt(req.query.items);
 
@@ -351,7 +351,7 @@ async function run() {
 
     // * category
     // to get the categories
-    app.get("/categories", verifyFBToken , async (req, res) => {
+    app.get("/categories" , async (req, res) => {
       try {
         const result = await categoryCollection.find().toArray();
         res.send(result);
@@ -414,14 +414,14 @@ async function run() {
     });
 
     // to implement pagination for category 
-    app.get("/categoryCount", verifyFBToken , async (req, res) => {
+    app.get("/categoryCount" , async (req, res) => {
       const category = req.query.category;
       const count = await medicineCollection.countDocuments({ category });
       res.send({ count });
     });
 
     // to get category medicine per page
-    app.get("/categoryPagination", verifyFBToken , async (req, res) => {
+    app.get("/categoryPagination" , async (req, res) => {
       try {
         const category = req.query.category;
         const page = parseInt(req.query.page) || 0;
@@ -483,7 +483,7 @@ async function run() {
 
     // * my cart
     // to get cart items for a specific user
-    app.get("/myCart", verifyFBToken , async (req, res) => {
+    app.get("/myCart" , async (req, res) => {
       try {
         const { email } = req.query;
         if (!email)
@@ -598,7 +598,7 @@ async function run() {
 
     // * ads
     // to get ads per email
-    app.get("/adRequest/email", verifyFBToken , async (req, res) => {
+    app.get("/adRequest/email" , async (req, res) => {
       try {
         const email = req.query.email;
 
@@ -640,7 +640,7 @@ async function run() {
     });
 
     // to able to see all ads
-    app.get("/allAds", verifyFBToken , async (req, res) => {
+    app.get("/allAds" , async (req, res) => {
       try {
         const ads = await adCollection.find().toArray();
         res.send(ads);
@@ -651,7 +651,7 @@ async function run() {
     });
 
     // to change the status of an ad
-    app.patch("/allAds/:id", verifyFBToken ,  async (req, res) => {
+    app.patch("/allAds/:id" ,  async (req, res) => {
       try {
         const { id } = req.params;
         const { show } = req.body; // Expected to be true or false
@@ -671,7 +671,7 @@ async function run() {
     });
 
     // to get all the approved ads
-    app.get("/approvedAds", verifyFBToken , async (req, res) => {
+    app.get("/approvedAds" , async (req, res) => {
       try {
         const sliderAds = await adCollection
           .find({ status: "Approved" })
@@ -695,7 +695,7 @@ async function run() {
 
 
     // * payment integration
-    app.post("/create-payment-intent", verifyFBToken , async (req, res) => {
+    app.post("/create-payment-intent" , async (req, res) => {
       const amountInCents = req.body.totalCostInCents;
 
       const paymentIntent = await stripe.paymentIntents.create({
@@ -708,7 +708,7 @@ async function run() {
     });
 
     // to get payment for each user
-    app.get("/payment", verifyFBToken , async (req, res) => {
+    app.get("/payment" , async (req, res) => {
       const email = req.query.email;
 
       const query = email ? { email: email } : {};
@@ -719,7 +719,7 @@ async function run() {
     });
 
     // to record payment and update parcel status
-    app.post("/payment", verifyFBToken , async (req, res) => {
+    app.post("/payment" , async (req, res) => {
       try {
         const { cartItemIds, email, amount, paymentMethod, transactionId } =
           req.body;
@@ -755,7 +755,7 @@ async function run() {
     });
 
     // to get the payment status from cartCollection for admin to accept payment
-    app.get("/paymentStatus", verifyFBToken , async (req, res) => {
+    app.get("/paymentStatus" , async (req, res) => {
       try {
         const statuses = await cartCollection
           .find(
@@ -770,7 +770,7 @@ async function run() {
     });
 
     // to get the acceptance status from paymentCollection for admin to accept payment
-    app.get("/acceptanceStatus", verifyFBToken , async (req, res) => {
+    app.get("/acceptanceStatus" , async (req, res) => {
       try {
         const statuses = await paymentCollection
           .find({}, { projection: { acceptance_status: 1, email: 1 } })
@@ -782,7 +782,7 @@ async function run() {
     });
 
     // to accept a pending payment
-    app.patch("/acceptanceStatus/:id", verifyFBToken , async (req, res) => {
+    app.patch("/acceptanceStatus/:id" , async (req, res) => {
       const id = req.params.id;
 
       try {
@@ -829,7 +829,7 @@ async function run() {
     });
 
     // to get sales report for admin
-    app.get("/salesReport", verifyFBToken , async (req, res) => {
+    app.get("/salesReport" , async (req, res) => {
       try {
         const { startDate, endDate } = req.query;
 
@@ -875,7 +875,7 @@ async function run() {
     });
 
     // to get the Accepted and Pending sales
-    app.get("/salesRevenue", verifyFBToken , async (req, res) => {
+    app.get("/salesRevenue" , async (req, res) => {
       try {
         const pipeline = [
           {
