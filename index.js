@@ -455,7 +455,7 @@ async function run() {
 
 
     // to implement pagination for manage medicine in seller page
-    app.get("/medicines/emailPagination", verifyFBToken ,  async (req, res) => {
+    app.get("/medicines/emailPagination" ,  async (req, res) => {
       const email = req.query.email;
       const page = parseInt(req.query.page) || 0;
       const items = parseInt(req.query.items) || 5;
@@ -728,7 +728,7 @@ async function run() {
 
         const updateResult = await cartCollection.updateMany(
           { _id: { $in: idsArray }, email },
-          { $set: { payment_status: "Paid", paid_at_string: new Date() } }
+          { $set: { payment_status: "Paid"} }
         );
 
         const paymentDoc = {
@@ -738,7 +738,7 @@ async function run() {
           paymentMethod,
           transactionId,
           acceptance_status: "Pending",
-          // paid_at_string: new Date().toISOString(),
+          paid_at_string: new Date().toISOString(),
         };
 
         const paymentResult = await paymentCollection.insertOne(paymentDoc);
