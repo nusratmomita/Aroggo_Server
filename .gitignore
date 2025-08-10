@@ -1,1 +1,4 @@
 node_modules
+.env
+.vercel
+aroggo-e998e-firebase-adminsdk.json
