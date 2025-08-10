@@ -17,9 +17,15 @@
   <li>Email/Password and Google login/sign up.</li>
 </ul>
 
-<h1>Admin Email and Password: 🧧</h1>
+<h1>Project Preview💻: </h1>
+<img scr="https://i.ibb.co.com/XxBhZrcj/aroggo.png" alt="aroggoImage">
+<img scr="https://i.ibb.co.com/qwbSN6C/aroggo1.png" alt="aroggoImageMedicine">
+<img scr="https://i.ibb.co.com/h1d1dCmn/aroggo2.png" alt="aroggoImageCategory">
+<img scr="https://i.ibb.co.com/6R0H9kNh/aroggo3.png" alt="aroggoImageSalesReport">
+
+<h2>Try out the site now! Admin Email and Password: 🦾</h2>
 <h4>Email: nusratmomita@gmail.com</h4>
 <h4>Password: Nusrat</h4>
 
-<h1>Live Link: 🔍</h1>
+<h1>😅Got no time? Check out the Live Link</h1>
 <a href="https://aroggo-e998e.web.app/">[Click here]</a>
