@@ -249,9 +249,10 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
-
+    
     // to get category wise medicines
     app.get("/category" , async (req, res) => {
+      console.log("first")
       try {
         const result = await medicineCollection
           .aggregate([
@@ -272,7 +273,10 @@ async function run() {
           categoryImage: cat.image,
           count: cat.count,
         }));
+        
         res.status(200).send(categoryCards);
+        console.log(result)
+        console.log(categoryCards)
       } catch (error) {
         console.error("Failed to fetch category cards:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -1021,5 +1025,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  // console.log(`Aroggo server is running on port,${port}`);
+  console.log(`Aroggo server is running on port,${port}`);
 });
