@@ -25,15 +25,13 @@ It provides separate dashboards for **Users, Sellers, and Admins**.
 
 ---
 
-## 📸 Screenshots
-
-### 🏠 Homepage
+### 🏠 Sales Report
 ![Sales Report](https://i.ibb.co.com/DgYF82n3/aroggo3.png)
 
-### 📊 Dashboard
+### 📊 All Medicines
 ![Available Medicines](https://i.ibb.co.com/yFWzLHW4/aroggo1.png)
 
-### 💳 Payment History
+### 💳 Manage Medicine
 ![Manage Medicine UI](https://i.ibb.co.com/DfRxxhcF/aroggo2.png)
 
 ## 🔑 Admin Access
