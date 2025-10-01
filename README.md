@@ -1,25 +1,32 @@
-<h1>Welcome To Arrogo💊</h1>
-<h2>Arrogo is a medicine e-commerce that helps users to find, buy, and pay for medicines easily. </h2>
+# 💊 Arrogo — Medicine E-commerce Platform
 
-<h1>Key features🎇: </h1>
-<ul>
-  <li>Users can list, update, and delete medicines.</li>
-  <li>In the User Dashboard, Users can manage their paid and pending medicine payment details easily.</li>
-  <li>Seller can list, update, delete Categories and add medicines.</li>
-  <li>Seller can visualize sales report in a chart format.</li>
-  <li>Seller can add a new medicine.</li>
-  <li>In the Seller Dashboard, Sellers can manage their paid and unpaid medicine payment details easily.</li>
-  <li>In the Seller Dashboard, the  Seller can request for Ad and manage its tracking.</li>
-  <li>In Admin Dashboard,  Admin can approve the ad request from Sellers.</li>
-  <li>In Admin Dashboard,  Admin can manage payment history and approve the payment.</li>
-  <li>In Admin Dashboard,  Admin can Upgrade or Upgrade User to seller and vice versa.</li>
-  <li>Admin can add a new medicine category.</li>
-  <li>Email/Password and Google login/sign up.</li>
-</ul>
+Arrogo is a role-based medicine e-commerce platform that helps users **find, buy, and pay** for medicines securely.  
+It provides separate dashboards for **Users, Sellers, and Admins**.
 
-<h1>Admin Email and Password: 🧧</h1>
-<h2>Email: nusratmomita@gmail.com</h2>
-<h2>Password: Nusrat</h2>
+🔗 **Live Link:** [Click here](https://aroggo-e998e.web.app/)
 
-<h1>Live Link: 🔍</h1>
-<a href="https://aroggo-e998e.web.app/">[Click here]</a>
+---
+
+## ✨ Features
+
+### 👤 Users
+- Browse medicines, view details, and add to cart
+- Secure checkout & payment history
+
+### 🛍️ Sellers
+- Add, update, and delete medicines & categories
+- Request advertisements for products
+- View sales reports with charts
+
+### 🛡️ Admin
+- Approve ads & manage payment history
+- Upgrade/downgrade users and sellers
+- Manage medicine categories
+
+---
+
+## 🔑 Admin Access
+
+```bash
+Email: nusratmomita@gmail.com
+Password: Nusrat
