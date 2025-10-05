@@ -252,7 +252,7 @@ async function run() {
     
     // to get category wise medicines
     app.get("/category" , async (req, res) => {
-      console.log("first")
+      // console.log("first")
       try {
         const result = await medicineCollection
           .aggregate([
@@ -275,8 +275,8 @@ async function run() {
         }));
         
         res.status(200).send(categoryCards);
-        console.log(result)
-        console.log(categoryCards)
+        // console.log(result)
+        // console.log(categoryCards)
       } catch (error) {
         console.error("Failed to fetch category cards:", error);
         res.status(500).send({ message: "Internal Server Error" });
